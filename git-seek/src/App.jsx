@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getRecentSearches, getMostVisited } from './api/api'
+import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getMostVisited } from './api/api'
 import RememberMeModal from './components/RememberMeModal'
 import LoadingSpinner from './components/LoadingSpinner'
 
@@ -12,6 +12,7 @@ function App() {
   const [user, setUser] = useState(null)
   const [showWhyLink, setShowWhyLink] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
   const [showRememberModal, setShowRememberModal] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [recentRepos, setRecentRepos] = useState([])
@@ -19,27 +20,22 @@ function App() {
     languages: [],
     dateFilter: 'all'
   })
-  const REPOS_PER_PAGE = 18
 
   const popularLanguages = [
     'JavaScript', 'Python', 'Java', 'TypeScript', 'C++', 'C#', 'PHP', 'Ruby', 'Go', 'Rust', 'Swift', 'Kotlin', 'Dart', 'HTML', 'CSS'
   ]
 
+  // Initialize authentication on app load
   useEffect(() => {
     const initAuth = async () => {
-      console.log('Checking authentication...')
-      
       const currentUser = await getCurrentUser()
-      console.log('Current user:', currentUser)
       
       if (currentUser) {
         setUser(currentUser)
-        loadUserData()
         
+        // Check if user needs to see "remember me" prompt
         setTimeout(async () => {
           const shouldShowPrompt = await checkRememberPrompt()
-          console.log('Should show prompt:', shouldShowPrompt)
-          
           if (shouldShowPrompt) {
             setShowRememberModal(true)
           }
@@ -50,19 +46,31 @@ function App() {
     initAuth()
   }, [])
 
+  // Load user's recently visited repos 
   const loadUserData = async () => {
     try {
       const visited = await getMostVisited()
-      setRecentRepos(visited.slice(0, 3)) 
+      setRecentRepos(visited.slice(0, 3))  
     } catch (err) {
       console.error('Error loading user data:', err)
     }
   }
 
+  // Load recent repos whenever user changes (login/logout)
+  useEffect(() => {
+    if (user) {
+      loadUserData()
+    }
+  }, [user])
+
+  // Handle "remember me" choice or modal dismissal
   const handleRememberChoice = async (remember) => {
-    console.log('User chose remember:', remember)
     await setRememberPreference(remember)
     setShowRememberModal(false)
+  }
+
+  const handleModalDismiss = () => {
+    handleRememberChoice(true)
   }
 
   const handleLanguageToggle = (language) => {
@@ -82,24 +90,37 @@ function App() {
     setFilters({ languages: [], dateFilter: 'all' })
   }
 
-  const handleSearch = async (e) => {
-    e.preventDefault()
+  const handleSearch = async (e, pageNum = 1) => {
+    if (e) e.preventDefault()
     if (!searchQuery.trim()) return
 
     setLoading(true)
     setError(null)
-    setCurrentPage(1)
+    
+    // Reset to page 1 only on new searches, not on page changes
+    if (e) {
+      setCurrentPage(1)
+      pageNum = 1
+    }
 
     try {
-      const data = await searchRepos(searchQuery, filters)
+      // Fetch specific page from GitHub API
+      const data = await searchRepos(searchQuery, filters, pageNum)
+      
       setRepositories(data.items || [])
+      // Calculate total pages from GitHub's total count
+      const maxPages = Math.min(Math.ceil(data.total_count / 30), 34)
+      setTotalPages(maxPages)
     } catch (err) {
       setError(err.message)
+      setRepositories([])
+      setTotalPages(0)
     } finally {
       setLoading(false)
     }
   }
 
+  // Track when user clicks on a repo
   const handleRepoClick = async (repo) => {
     if (user) {
       await trackRepoVisit(repo.html_url, repo.full_name, {
@@ -107,13 +128,12 @@ function App() {
         stargazers_count: repo.stargazers_count,
         language: repo.language
       })
-      // Reload recent repos after tracking
+      // Refresh "Jump Back In" section
       loadUserData()
     }
   }
 
   const handleLogout = async () => {
-    console.log('Logging out...')
     await logout()
     setUser(null)
     setShowRememberModal(false)
@@ -121,14 +141,10 @@ function App() {
     window.location.reload()
   }
 
-  // Pagination logic
-  const totalPages = Math.ceil(repositories.length / REPOS_PER_PAGE)
-  const startIndex = (currentPage - 1) * REPOS_PER_PAGE
-  const endIndex = startIndex + REPOS_PER_PAGE
-  const currentRepos = repositories.slice(startIndex, endIndex)
-
+  // Navigate to a different page
   const goToPage = (page) => {
     setCurrentPage(page)
+    handleSearch(null, page) 
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -141,6 +157,7 @@ function App() {
           user={user}
           onRemember={() => handleRememberChoice(true)}
           onForget={() => handleRememberChoice(false)}
+          onDismiss={handleModalDismiss}
         />
       )}
 
@@ -181,10 +198,9 @@ function App() {
         </div>
       </form>
 
-      {/* Loading Spinner */}
       {loading && <LoadingSpinner />}
 
-      {/* Jump Back In Section - Recently Accessed Repos */}
+      {/* Jump Back In Section */}
       {!loading && user && recentRepos.length > 0 && repositories.length === 0 && (
         <div className="jump-back-in">
           <h2>⚡ Jump Back In</h2>
@@ -299,7 +315,7 @@ function App() {
               <ul>
                 <li>
                   -Access and search through your private repositories
-                  <br></br>-Get 5,000 API requests per hour instead of just 6
+                  <br></br>-Get 5,000 API requests per hour instead of just 60
                   <br></br>-Save and revisit your recent searches
                   <br></br>-Keep track of your most visited repositories
                 </li>
@@ -316,7 +332,7 @@ function App() {
 
       {!loading && (
         <div className="results">
-          {currentRepos.map((repo) => (
+          {repositories.map((repo) => (
             <div key={repo.id} className="repo-card">
               <h3>
                 <a 
@@ -340,6 +356,7 @@ function App() {
         </div>
       )}
 
+      {/* Real pagination */}
       {repositories.length > 0 && totalPages > 1 && (
         <div className="pagination">
           <button 
@@ -353,6 +370,7 @@ function App() {
           <div className="page-numbers">
             {[...Array(totalPages)].map((_, index) => {
               const pageNum = index + 1
+              // Show: first page, last page, current page, and pages adjacent to current
               if (
                 pageNum === 1 || 
                 pageNum === totalPages || 

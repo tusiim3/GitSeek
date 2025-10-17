@@ -1,12 +1,6 @@
-
-node_modules/
-
+git-seek/node_modules/
 .env
 server/.env
-
-# build files
 git-seek/dist/
-
-# OS junk
 .DS_Store
 Thumbs.db

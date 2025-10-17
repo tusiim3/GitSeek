@@ -7,12 +7,14 @@ const api = axios.create({
   withCredentials: true
 })
 
-export const searchRepos = async (query, filters = {}) => {
+// Search repos with pagination 
+export const searchRepos = async (query, filters = {}, page = 1) => {
   const response = await api.get('/api/search', { 
     params: { 
       q: query,
       languages: filters.languages?.join(',') || '',
-      dateFilter: filters.dateFilter || 'all'
+      dateFilter: filters.dateFilter || 'all',
+      page: page  
     } 
   })
   return response.data
@@ -43,11 +45,6 @@ export const setRememberPreference = async (remember) => {
 
 export const logout = async () => {
   await api.get('/auth/logout')
-}
-
-export const getRecentSearches = async () => {
-  const response = await api.get('/api/recent-searches')
-  return response.data.searches
 }
 
 export const trackRepoVisit = async (repoUrl, repoName, repoData) => {
