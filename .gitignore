@@ -6,3 +6,6 @@ server/.env
 git-seek/dist/
 .DS_Store
 Thumbs.db
+server/gitseek.db
+server/gitseek.db-shm
+server/gitseek.db-wal

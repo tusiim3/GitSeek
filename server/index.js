@@ -3,34 +3,32 @@ const cors = require('cors')
 const session = require('express-session')
 const passport = require('passport')
 const GitHubStrategy = require('passport-github2').Strategy
+const SqliteStore = require('better-sqlite3-session-store')(session)
+const { db, upsertVisit, getMostVisited, deleteUserVisits, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
 require('dotenv').config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
 
-// In-memory storage (no database)
-const userSessions = new Map()
-const visitedRepos = new Map() 
-const needsRememberPrompt = new Set()  
-
 // Middleware setup
 app.use(cors({
   origin: process.env.FRONTEND_URL,
-  credentials: true 
+  credentials: true
 }))
 app.use(express.json())
 
 // Session configuration
 const sessionMiddleware = session({
+  store: new SqliteStore({ client: db }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  rolling: true, 
+  rolling: true,
   name: 'connect.sid',
   cookie: {
-    secure: true,  
-    httpOnly: true,  
-    maxAge: 30 * 24 * 60 * 60 * 1000,  
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
     sameSite: 'lax',
     path: '/'
   }
@@ -45,10 +43,9 @@ app.use(passport.session())
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: "http://localhost:5000/auth/github/callback"
+    callbackURL: process.env.BACKEND_URL + '/auth/github/callback'
   },
   function(accessToken, refreshToken, profile, done) {
-    // Store the access token to use for GitHub API requests later
     const user = {
       id: profile.id,
       username: profile.username,
@@ -75,16 +72,8 @@ app.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] 
 app.get('/auth/github/callback',
   passport.authenticate('github', { failureRedirect: process.env.FRONTEND_URL }),
   (req, res) => {
-    // Initialize storage for this user if they're new
-    if (!visitedRepos.has(req.user.id)) {
-      visitedRepos.set(req.user.id, new Map())
-    }
-    
-    // Mark this user as needing the "remember me" prompt
-    needsRememberPrompt.add(req.user.id)
-    
+    setNeedsPrompt(req.user.id)
     console.log(`User ${req.user.id} logged in successfully`)
-    
     res.redirect(process.env.FRONTEND_URL)
   }
 )
@@ -92,8 +81,7 @@ app.get('/auth/github/callback',
 // Check if user needs to see the "remember me" prompt
 app.get('/auth/check-prompt', (req, res) => {
   if (req.isAuthenticated()) {
-    const showPrompt = needsRememberPrompt.has(req.user.id)
-    res.json({ showPrompt })
+    res.json({ showPrompt: getNeedsPrompt(req.user.id) })
   } else {
     res.json({ showPrompt: false })
   }
@@ -104,16 +92,16 @@ app.post('/auth/remember', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
-  
+
   const { remember } = req.body
-  
+
   // Default to "remember me" (30 days) if user dismisses or closes modal
   const sessionDuration = remember !== false ? 30 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000
   req.session.cookie.maxAge = sessionDuration
-  needsRememberPrompt.delete(req.user.id)
-  
+  clearNeedsPrompt(req.user.id)
+
   console.log(`User ${req.user.id} session set to: ${remember !== false ? '30 days' : '2 hours'}`)
-  
+
   // Persist the session with new expiration
   req.session.save((err) => {
     if (err) {
@@ -127,13 +115,12 @@ app.post('/auth/remember', (req, res) => {
 // Logout and cleanup
 app.get('/auth/logout', (req, res) => {
   const userId = req.user?.id
-  
-  // Clean up user data from memory
+
   if (userId) {
-    visitedRepos.delete(userId)
-    needsRememberPrompt.delete(userId)
+    deleteUserVisits(userId)
+    clearNeedsPrompt(userId)
   }
-  
+
   req.logout((err) => {
     if (err) {
       return res.status(500).json({ error: 'Logout failed' })
@@ -172,14 +159,14 @@ app.get('/auth/user', (req, res) => {
 app.get('/api/search', async (req, res) => {
   try {
     const { q, languages, dateFilter, page = 1 } = req.query
-    
+
     if (!q) {
       return res.status(400).json({ error: 'Query parameter required' })
     }
 
     const axios = require('axios')
     const headers = {}
-    
+
     // Use authenticated user's token for higher rate limits
     if (req.isAuthenticated() && req.user.accessToken) {
       headers.Authorization = `token ${req.user.accessToken}`
@@ -200,7 +187,7 @@ app.get('/api/search', async (req, res) => {
     if (dateFilter && dateFilter !== 'all') {
       const now = new Date()
       let date
-      
+
       if (dateFilter === 'week') {
         date = new Date(now.setDate(now.getDate() - 7))
       } else if (dateFilter === 'month') {
@@ -208,7 +195,7 @@ app.get('/api/search', async (req, res) => {
       } else if (dateFilter === 'year') {
         date = new Date(now.setFullYear(now.getFullYear() - 1))
       }
-      
+
       if (date) {
         const dateString = date.toISOString().split('T')[0]
         searchQuery += ` pushed:>=${dateString}`
@@ -235,66 +222,24 @@ app.get('/api/search', async (req, res) => {
   }
 })
 
-// Track repository visit with storage optimization
+// Track repository visit
 app.post('/api/track-visit', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
 
   const { repoUrl, repoName, repoData } = req.body
-  const repos = visitedRepos.get(req.user.id) || new Map()
-  
-  // Storage optimization: limit repos per user and clean up old entries
-  const MAX_REPOS_PER_USER = 50
-  const MAX_AGE_DAYS = 30
-  const cutoff = Date.now() - (MAX_AGE_DAYS * 24 * 60 * 60 * 1000)
-  
-  // Clean up old visits first (30+ days old)
-  for (const [url, data] of repos.entries()) {
-    if (data.lastVisited < cutoff) {
-      repos.delete(url)
-    }
-  }
-  
-  // Add or update the visited repo
-  const existing = repos.get(repoUrl)
-  repos.set(repoUrl, {
-    url: repoUrl,
-    name: repoName,
-    count: existing ? existing.count + 1 : 1,
-    lastVisited: Date.now(),
-    description: repoData?.description || '',
-    stars: repoData?.stargazers_count || 0,
-    language: repoData?.language || 'N/A'
-  })
-  
-  // keep only 50 most recently visited repos
-  if (repos.size > MAX_REPOS_PER_USER) {
-    const sorted = Array.from(repos.entries())
-      .sort((a, b) => b[1].lastVisited - a[1].lastVisited)
-      .slice(0, MAX_REPOS_PER_USER)
-    visitedRepos.set(req.user.id, new Map(sorted))
-  } else {
-    visitedRepos.set(req.user.id, repos)
-  }
-
+  upsertVisit(req.user.id, repoUrl, repoName, repoData)
   res.json({ message: 'Visit tracked' })
 })
 
-// Get user's most recently visited repos 
+// Get user's most recently visited repos
 app.get('/api/most-visited', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
 
-  const repos = visitedRepos.get(req.user.id) || new Map()
-  
-  // Sort by most recent visit and return top 10
-  const sortedRepos = Array.from(repos.values())
-    .sort((a, b) => b.lastVisited - a.lastVisited)
-    .slice(0, 10)
-
-  res.json({ repos: sortedRepos })
+  res.json({ repos: getMostVisited(req.user.id, 10) })
 })
 
 app.listen(PORT, () => {
