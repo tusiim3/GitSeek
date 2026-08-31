@@ -55,7 +55,7 @@ app.use(passport.session())
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: process.env.BACKEND_URL + '/auth/github/callback'
+    callbackURL: (process.env.BACKEND_URL || 'http://localhost:5000') + '/auth/github/callback'
   },
   function(accessToken, refreshToken, profile, done) {
     const user = {
