@@ -4,6 +4,7 @@ const session = require('express-session')
 const passport = require('passport')
 const GitHubStrategy = require('passport-github2').Strategy
 const SqliteStore = require('better-sqlite3-session-store')(session)
+const { rateLimit } = require('express-rate-limit')
 const { db, upsertVisit, getMostVisited, deleteUserVisits, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
 require('dotenv').config()
 
@@ -155,8 +156,16 @@ app.get('/auth/user', (req, res) => {
   }
 })
 
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please slow down' }
+})
+
 // Repository Search with GitHub API
-app.get('/api/search', async (req, res) => {
+app.get('/api/search', searchLimiter, async (req, res) => {
   try {
     const { q, languages, dateFilter, page = 1 } = req.query
 
