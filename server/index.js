@@ -5,11 +5,22 @@ const passport = require('passport')
 const GitHubStrategy = require('passport-github2').Strategy
 const SqliteStore = require('better-sqlite3-session-store')(session)
 const { rateLimit } = require('express-rate-limit')
+const pino = require('pino')
+const pinoHttp = require('pino-http')
 const { db, upsertVisit, getMostVisited, deleteUserVisits, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
 require('dotenv').config()
 
+const isProd = process.env.NODE_ENV === 'production'
+
+const logger = pino({
+  level: 'info',
+  transport: isProd ? undefined : { target: 'pino-pretty', options: { colorize: true } }
+})
+
 const app = express()
 const PORT = process.env.PORT || 5000
+
+app.use(pinoHttp({ logger }))
 
 // Middleware setup
 app.use(cors({
@@ -74,7 +85,7 @@ app.get('/auth/github/callback',
   passport.authenticate('github', { failureRedirect: process.env.FRONTEND_URL }),
   (req, res) => {
     setNeedsPrompt(req.user.id)
-    console.log(`User ${req.user.id} logged in successfully`)
+    logger.info({ userId: req.user.id }, 'User logged in')
     res.redirect(process.env.FRONTEND_URL)
   }
 )
@@ -101,12 +112,12 @@ app.post('/auth/remember', (req, res) => {
   req.session.cookie.maxAge = sessionDuration
   clearNeedsPrompt(req.user.id)
 
-  console.log(`User ${req.user.id} session set to: ${remember !== false ? '30 days' : '2 hours'}`)
+  logger.info({ userId: req.user.id, duration: remember !== false ? '30 days' : '2 hours' }, 'Session duration set')
 
   // Persist the session with new expiration
   req.session.save((err) => {
     if (err) {
-      console.error('Session save error:', err)
+      logger.error({ err }, 'Session save error')
       return res.status(500).json({ error: 'Failed to save preference' })
     }
     res.json({ success: true })
@@ -211,7 +222,7 @@ app.get('/api/search', searchLimiter, async (req, res) => {
       }
     }
 
-    console.log(`Search query: "${searchQuery}", page: ${page}`)
+    logger.info({ query: searchQuery, page }, 'GitHub search')
 
     // Fetch from GitHub API with pagination
     const response = await axios.get(
@@ -226,7 +237,7 @@ app.get('/api/search', searchLimiter, async (req, res) => {
       current_page: parseInt(page)
     })
   } catch (error) {
-    console.error('Search error:', error.message)
+    logger.error({ err: error }, 'Search failed')
     res.status(500).json({ error: 'Search failed' })
   }
 })
@@ -252,6 +263,5 @@ app.get('/api/most-visited', (req, res) => {
 })
 
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-  console.log(`Frontend should be at: ${process.env.FRONTEND_URL}`)
+  logger.info({ port: PORT, frontend: process.env.FRONTEND_URL }, 'Server started')
 })
