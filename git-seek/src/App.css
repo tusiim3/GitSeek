@@ -1,3 +1,23 @@
+:root {
+  /* One accent colour (GitHub blue) for every primary action and selected state */
+  --accent: #0969da;
+  --accent-hover: #0860ca;
+  --accent-soft: #ddf4ff;
+  /* Light surfaces (cards, panels) */
+  --surface: #ffffff;
+  --surface-muted: #f6f8fa;
+  --text: #1f2328;
+  --muted: #59636e;
+  --border: #d0d7de;
+  --danger: #cf222e;
+  /* Controls drawn directly on the dark page */
+  --on-dark: #ffffff;
+  --on-dark-muted: rgba(255, 255, 255, 0.72);
+  --dark-control: rgba(255, 255, 255, 0.08);
+  --dark-control-hover: rgba(255, 255, 255, 0.16);
+  --dark-control-border: rgba(255, 255, 255, 0.24);
+}
+
 * {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -136,7 +156,7 @@ input[type="text"] {
 }
 
 input[type="text"]:focus {
-  border-color: #0969da;
+  border-color: var(--accent);
 }
 
 /* The input has a 1rem top margin, so centre the button on the input itself */
@@ -171,9 +191,9 @@ input[type="text"]:focus {
 }
 
 .filter-toggle-btn {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--dark-control);
+  color: var(--on-dark);
+  border: 1px solid var(--dark-control-border);
   padding: 0.75rem 1.5rem;
   border-radius: 50px;
   cursor: pointer;
@@ -182,9 +202,8 @@ input[type="text"]:focus {
   margin-top: auto;
 }
 
-.filter-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
+.filter-toggle-btn:hover:not(:disabled) {
+  background: var(--dark-control-hover);
 }
 
 /* Filters Panel */
@@ -219,25 +238,30 @@ input[type="text"]:focus {
 
 .language-chip {
   padding: 0.5rem 1rem;
-  background: #f0f0f0;
-  border: 2px solid transparent;
+  margin-top: 0;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.9rem;
-  color: #555;
+  color: var(--text);
   font-weight: 500;
 }
 
-.language-chip:hover {
-  background: #e0e0e0;
-  transform: translateY(-2px);
+.language-chip:hover:not(:disabled),
+.date-filter-btn:hover:not(:disabled) {
+  background: #eaeef2;
+  border-color: #afb8c1;
 }
 
-.language-chip.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-color: transparent;
+.language-chip.active,
+.language-chip.active:hover:not(:disabled),
+.date-filter-btn.active,
+.date-filter-btn.active:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .date-filters {
@@ -247,42 +271,32 @@ input[type="text"]:focus {
 }
 
 .date-filter-btn {
-  padding: 0.75rem 1.5rem;
-  background: #f0f0f0;
-  border: 2px solid transparent;
+  padding: 0.5rem 1rem;
+  margin-top: 0;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 0.9rem;
   font-weight: 500;
-  color: #555;
+  color: var(--text);
 }
 
-.date-filter-btn:hover {
-  background: #e0e0e0;
-  transform: translateY(-2px);
-}
-
-.date-filter-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
+/* A minor action: a quiet text button, not a big coloured bar */
 .clear-filters-btn {
-  width: 100%;
-  padding: 0.75rem;
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
+  display: block;
+  margin: 0 0 0 auto;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.875rem;
   font-weight: 600;
-  transition: all 0.2s;
-  margin-top: 1rem;
+  border-radius: 6px;
 }
 
-.clear-filters-btn:hover {
-  background: #ff5252;
-  transform: translateY(-2px);
+.clear-filters-btn:hover:not(:disabled) {
+  background: #ffebe9;
 }
 
 /* Active Filters Badges */
@@ -328,7 +342,7 @@ button {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
-  background-color: #0969da;
+  background-color: var(--accent);
   color: white;
   border: none;
   border-radius: 25px;
@@ -350,7 +364,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background-color: #0860ca;
+  background-color: var(--accent-hover);
 }
 
 button:disabled {
@@ -402,9 +416,8 @@ button:disabled {
 }
 
 .recent-repo-card:hover {
-  border-color: #667eea;
-  transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(31, 35, 40, 0.12);
 }
 
 .recent-repo-header {
@@ -417,7 +430,7 @@ button:disabled {
 .recent-repo-header h3 {
   margin: 0;
   font-size: 1rem;
-  color: #0969da;
+  color: var(--accent);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -425,8 +438,8 @@ button:disabled {
 }
 
 .recent-badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--accent-soft);
+  color: var(--accent);
   padding: 0.25rem 0.75rem;
   border-radius: 50px;
   font-size: 0.75rem;
@@ -465,7 +478,7 @@ button:disabled {
 .link-github-btn {
   display: inline-block;
   padding: 0.875rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
   text-decoration: none;
   border-radius: 50px;
@@ -476,8 +489,7 @@ button:disabled {
 }
 
 .link-github-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  background: var(--accent-hover);
 }
 
 .why-link-btn {
@@ -485,7 +497,7 @@ button:disabled {
   margin: 0 auto;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--on-dark-muted);
   text-decoration: underline;
   cursor: pointer;
   font-size: 0.9rem;
@@ -685,7 +697,7 @@ button:disabled {
 }
 
 .repo-card h3 a {
-  color: #0969da;
+  color: var(--accent);
   text-decoration: none;
   min-width: 0;
   overflow: hidden;
@@ -732,10 +744,10 @@ button:disabled {
 }
 
 .page-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
+  padding: 0.6rem 1.25rem;
+  background: var(--dark-control);
+  color: var(--on-dark);
+  border: 1px solid var(--dark-control-border);
   border-radius: 50px;
   cursor: pointer;
   font-weight: 600;
@@ -743,14 +755,14 @@ button:disabled {
   margin-top: 0;
 }
 
-.page-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
+.page-btn:hover:not(:disabled),
+.page-number:hover:not(:disabled) {
+  background: var(--dark-control-hover);
 }
 
 .page-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  transform: none;
 }
 
 .page-numbers {
@@ -761,9 +773,9 @@ button:disabled {
 
 .page-number {
   padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--dark-control);
+  color: var(--on-dark);
+  border: 1px solid var(--dark-control-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -772,14 +784,10 @@ button:disabled {
   margin-top: 0;
 }
 
-.page-number:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.page-number.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: transparent;
+.page-number.active,
+.page-number.active:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
   font-weight: 700;
 }
 
