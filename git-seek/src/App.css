@@ -1,3 +1,27 @@
+:root {
+  /* One accent colour (GitHub blue) for every primary action and selected state */
+  --accent: #0969da;
+  --accent-hover: #0860ca;
+  --accent-soft: #ddf4ff;
+  /* Light surfaces (cards, panels) */
+  --surface: #ffffff;
+  --surface-muted: #f6f8fa;
+  --text: #1f2328;
+  --muted: #59636e;
+  --border: #d0d7de;
+  --danger: #cf222e;
+  /* Controls drawn directly on the dark page */
+  --on-dark: #ffffff;
+  --on-dark-muted: rgba(255, 255, 255, 0.72);
+  --dark-control: rgba(255, 255, 255, 0.08);
+  --dark-control-hover: rgba(255, 255, 255, 0.16);
+  --dark-control-border: rgba(255, 255, 255, 0.24);
+  /* Solid surface for small pills drawn over the background logo */
+  --chip-bg: #161b22;
+  --chip-bg-hover: #21262d;
+  --chip-border: rgba(255, 255, 255, 0.18);
+}
+
 * {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
@@ -23,11 +47,17 @@ body::before {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  opacity: 1;
+  /* Dimmed so white text on top of it (title, chips) stays readable */
+  opacity: 0.5;
+  filter: brightness(0.7);
   z-index: 0;
   pointer-events: none;
 }
 
+/* Content is anchored to the top. Before the first search the large top
+   padding keeps the search box near the middle of the screen; once there are
+   results it eases down, so the page glides up instead of re-centring (and
+   jumping) every time the content changes height. */
 .app {
   max-width: 1200px;
   margin: 0 auto;
@@ -35,10 +65,15 @@ body::before {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  transition: padding-top 0.35s ease;
+}
+
+.app.is-idle {
+  padding-top: 24vh;
 }
 
 h1 {
@@ -47,7 +82,7 @@ h1 {
   margin-top: 0;
   /*margin-left: 10.25rem;*/
   margin-bottom: 0;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
 }
 
 /* Recent searches */
@@ -63,13 +98,12 @@ h1 {
 }
 
 .recent-searches-label {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--on-dark-muted);
   font-size: 0.85rem;
 }
 
 .recent-searches button {
   margin-top: 0;
-  animation: none;
   padding: 0.35rem 0.85rem;
   font-size: 0.85rem;
   font-weight: 500;
@@ -77,27 +111,27 @@ h1 {
 }
 
 .recent-search-chip {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.recent-search-chip:hover {
-  background: rgba(255, 255, 255, 0.22);
+.recent-searches .recent-search-chip:hover:not(:disabled) {
+  background: var(--chip-bg-hover);
 }
 
 .recent-search-filters {
   margin-left: 0.35rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--on-dark-muted);
   font-size: 0.75rem;
 }
 
 .recent-searches .clear-recent-btn {
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--on-dark-muted);
   text-decoration: underline;
 }
 
@@ -136,7 +170,7 @@ input[type="text"] {
 }
 
 input[type="text"]:focus {
-  border-color: #0969da;
+  border-color: var(--accent);
 }
 
 /* The input has a 1rem top margin, so centre the button on the input itself */
@@ -155,11 +189,15 @@ input[type="text"]:focus {
   border-radius: 50%;
   background: transparent;
   color: #57606a;
-  animation: none;
 }
 
 .search-input-wrapper .clear-search-btn:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.08);
+}
+
+/* Fixed width so "Search" → "Searching…" doesn't shift the buttons */
+.search-btn {
+  min-width: 8.5rem;
 }
 
 /* Search Actions */
@@ -171,9 +209,9 @@ input[type="text"]:focus {
 }
 
 .filter-toggle-btn {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--dark-control);
+  color: var(--on-dark);
+  border: 1px solid var(--dark-control-border);
   padding: 0.75rem 1.5rem;
   border-radius: 50px;
   cursor: pointer;
@@ -182,19 +220,38 @@ input[type="text"]:focus {
   margin-top: auto;
 }
 
-.filter-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
+.filter-toggle-btn:hover:not(:disabled) {
+  background: var(--dark-control-hover);
 }
 
-/* Filters Panel */
+/* Filters Panel: slides open by animating the grid row from 0 to its full height */
+.filters-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  width: 100%;
+  max-width: 800px;
+  transition: grid-template-rows 0.3s ease, opacity 0.25s ease;
+}
+
+.filters-collapse.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.filters-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .filters-panel {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 800px;
   margin: 2rem auto;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
   padding: 2rem;
-  animation: slideDown 0.3s ease-out;
 }
 
 .filter-section {
@@ -219,25 +276,30 @@ input[type="text"]:focus {
 
 .language-chip {
   padding: 0.5rem 1rem;
-  background: #f0f0f0;
-  border: 2px solid transparent;
+  margin-top: 0;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.9rem;
-  color: #555;
+  color: var(--text);
   font-weight: 500;
 }
 
-.language-chip:hover {
-  background: #e0e0e0;
-  transform: translateY(-2px);
+.language-chip:hover:not(:disabled),
+.date-filter-btn:hover:not(:disabled) {
+  background: #eaeef2;
+  border-color: #afb8c1;
 }
 
-.language-chip.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-color: transparent;
+.language-chip.active,
+.language-chip.active:hover:not(:disabled),
+.date-filter-btn.active,
+.date-filter-btn.active:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .date-filters {
@@ -247,42 +309,32 @@ input[type="text"]:focus {
 }
 
 .date-filter-btn {
-  padding: 0.75rem 1.5rem;
-  background: #f0f0f0;
-  border: 2px solid transparent;
+  padding: 0.5rem 1rem;
+  margin-top: 0;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 50px;
   cursor: pointer;
   transition: all 0.2s;
+  font-size: 0.9rem;
   font-weight: 500;
-  color: #555;
+  color: var(--text);
 }
 
-.date-filter-btn:hover {
-  background: #e0e0e0;
-  transform: translateY(-2px);
-}
-
-.date-filter-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
+/* A minor action: a quiet text button, not a big coloured bar */
 .clear-filters-btn {
-  width: 100%;
-  padding: 0.75rem;
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  border-radius: 50px;
-  cursor: pointer;
+  display: block;
+  margin: 0 0 0 auto;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.875rem;
   font-weight: 600;
-  transition: all 0.2s;
-  margin-top: 1rem;
+  border-radius: 6px;
 }
 
-.clear-filters-btn:hover {
-  background: #ff5252;
-  transform: translateY(-2px);
+.clear-filters-btn:hover:not(:disabled) {
+  background: #ffebe9;
 }
 
 /* Active Filters Badges */
@@ -300,12 +352,11 @@ input[type="text"]:focus {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   border-radius: 50px;
-  color: white;
+  color: var(--on-dark);
   font-size: 0.9rem;
-  backdrop-filter: blur(10px);
 }
 
 .filter-badge button {
@@ -320,37 +371,26 @@ input[type="text"]:focus {
   transition: transform 0.2s;
 }
 
-.filter-badge button:hover {
-  transform: scale(1.2);
+.filter-badge button:hover:not(:disabled) {
+  background: none;
+  color: var(--on-dark-muted);
 }
 
 button {
   padding: 0.75rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
-  background-color: #0969da;
+  background-color: var(--accent);
   color: white;
   border: none;
   border-radius: 25px;
   cursor: pointer;
-  transition: background-color 0.3s;
-  animation: slideIn 0.2s ease-out;
+  transition: background-color 0.2s;
   margin-top:1rem;
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 button:hover:not(:disabled) {
-  background-color: #0860ca;
+  background-color: var(--accent-hover);
 }
 
 button:disabled {
@@ -360,12 +400,14 @@ button:disabled {
 
 /* Jump Back In Section */
 .jump-back-in {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 1200px;
   margin: 2rem auto;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
   padding: 2rem;
-  animation: slideDown 0.3s ease-out;
+  animation: cardIn 0.2s ease-out both;
 }
 
 .jump-back-in h2 {
@@ -402,9 +444,8 @@ button:disabled {
 }
 
 .recent-repo-card:hover {
-  border-color: #667eea;
-  transform: translateY(-4px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+  border-color: var(--accent);
+  box-shadow: 0 4px 12px rgba(31, 35, 40, 0.12);
 }
 
 .recent-repo-header {
@@ -417,7 +458,7 @@ button:disabled {
 .recent-repo-header h3 {
   margin: 0;
   font-size: 1rem;
-  color: #0969da;
+  color: var(--accent);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -425,8 +466,8 @@ button:disabled {
 }
 
 .recent-badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: var(--accent-soft);
+  color: var(--accent);
   padding: 0.25rem 0.75rem;
   border-radius: 50px;
   font-size: 0.75rem;
@@ -450,7 +491,7 @@ button:disabled {
   display: flex;
   gap: 1rem;
   font-size: 0.85rem;
-  color: #666;
+  color: var(--muted);
   padding-top: 0.5rem;
   border-top: 1px solid #e0e0e0;
 }
@@ -465,7 +506,7 @@ button:disabled {
 .link-github-btn {
   display: inline-block;
   padding: 0.875rem 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
   text-decoration: none;
   border-radius: 50px;
@@ -476,8 +517,7 @@ button:disabled {
 }
 
 .link-github-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  background: var(--accent-hover);
 }
 
 .why-link-btn {
@@ -485,7 +525,7 @@ button:disabled {
   margin: 0 auto;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--on-dark-muted);
   text-decoration: underline;
   cursor: pointer;
   font-size: 0.9rem;
@@ -503,19 +543,8 @@ button:disabled {
   border-radius: 12px;
   padding: 1.5rem;
   text-align: left;
-  animation: slideDown 0.3s ease-out;
+  animation: cardIn 0.2s ease-out both;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .why-link-dropdown h3 {
@@ -576,11 +605,10 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--chip-bg);
   padding: 0.5rem 1rem;
   border-radius: 50px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--chip-border);
 }
 
 .avatar {
@@ -619,22 +647,20 @@ button:disabled {
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
   margin-top: 2rem;
-  animation: fadeIn 0.5s ease-in;
   width: 100%;
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* While the next page or search loads, keep the old results visible but faded */
+.results.is-loading {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.results {
+  transition: opacity 0.2s ease;
 }
 
 /* Repository Card */
@@ -643,8 +669,8 @@ button:disabled {
   border: 1px solid #d0d7de;
   border-radius: 12px;
   padding: 1.5rem;
-  transition: transform 0.2s, box-shadow 0.2s;
-  animation: slideUp 0.4s ease-out backwards;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  animation: cardIn 0.2s ease-out both;
   height: 180px;
   display: flex;
   flex-direction: column;
@@ -652,10 +678,11 @@ button:disabled {
   overflow: hidden;
 }
 
-@keyframes slideUp {
+/* A short, subtle fade for new results: no long slides or staggering */
+@keyframes cardIn {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -663,16 +690,9 @@ button:disabled {
   }
 }
 
-.repo-card:nth-child(1) { animation-delay: 0.05s; }
-.repo-card:nth-child(2) { animation-delay: 0.1s; }
-.repo-card:nth-child(3) { animation-delay: 0.15s; }
-.repo-card:nth-child(4) { animation-delay: 0.2s; }
-.repo-card:nth-child(5) { animation-delay: 0.25s; }
-.repo-card:nth-child(6) { animation-delay: 0.3s; }
-
 .repo-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  border-color: #afb8c1;
+  box-shadow: 0 4px 12px rgba(31, 35, 40, 0.12);
 }
 
 .repo-card h3 {
@@ -685,7 +705,7 @@ button:disabled {
 }
 
 .repo-card h3 a {
-  color: #0969da;
+  color: var(--accent);
   text-decoration: none;
   min-width: 0;
   overflow: hidden;
@@ -732,10 +752,10 @@ button:disabled {
 }
 
 .page-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
+  padding: 0.6rem 1.25rem;
+  background: var(--dark-control);
+  color: var(--on-dark);
+  border: 1px solid var(--dark-control-border);
   border-radius: 50px;
   cursor: pointer;
   font-weight: 600;
@@ -743,14 +763,14 @@ button:disabled {
   margin-top: 0;
 }
 
-.page-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
+.page-btn:hover:not(:disabled),
+.page-number:hover:not(:disabled) {
+  background: var(--dark-control-hover);
 }
 
 .page-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  transform: none;
 }
 
 .page-numbers {
@@ -761,9 +781,9 @@ button:disabled {
 
 .page-number {
   padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--dark-control);
+  color: var(--on-dark);
+  border: 1px solid var(--dark-control-border);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -772,14 +792,10 @@ button:disabled {
   margin-top: 0;
 }
 
-.page-number:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.page-number.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: transparent;
+.page-number.active,
+.page-number.active:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
   font-weight: 700;
 }
 
@@ -790,9 +806,20 @@ button:disabled {
 
 .repo-stats {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   font-size: 0.875rem;
-  color: #656d76;
+  color: var(--muted);
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.recent-repo-stats span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .repo-stats span {
@@ -804,6 +831,10 @@ button:disabled {
 @media (max-width: 600px) {
   .app {
     padding: 1.5rem 1rem;
+  }
+
+  .app.is-idle {
+    padding-top: 12vh;
   }
 
   h1 {
@@ -822,5 +853,17 @@ button:disabled {
   body::before {
     width: 90vw;
     height: 90vw;
+  }
+}
+
+/* Respect the system "reduce motion" setting: no animations or transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

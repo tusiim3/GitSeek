@@ -3,6 +3,7 @@ import './App.css'
 import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getRecentRepos, getRecentSearches, clearRecentSearches } from './api/api'
 import RememberMeModal from './components/RememberMeModal'
 import LoadingSpinner from './components/LoadingSpinner'
+import { StarIcon, ForkIcon, CodeIcon } from './components/Icons'
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -185,7 +186,7 @@ function App() {
   const hasActiveFilters = filters.languages.length > 0 || filters.dateFilter !== 'all'
 
   return (
-    <div className="app">
+    <div className={`app${lastSearch ? '' : ' is-idle'}`}>
       {showRememberModal && user && (
         <RememberMeModal
           user={user}
@@ -231,15 +232,16 @@ function App() {
           <button 
             type="button" 
             className="filter-toggle-btn"
+            aria-expanded={showFilters}
+            aria-controls="filters-panel"
             onClick={() => setShowFilters(!showFilters)}
           >
             Filters {hasActiveFilters && `(${filters.languages.length + (filters.dateFilter !== 'all' ? 1 : 0)})`}
           </button>
-          {searchQuery && (
-            <button type="submit" disabled={loading}>
-              {loading ? 'Searching...' : 'Search'}
-            </button>
-          )}
+          {/* Always rendered so typing never changes the layout */}
+          <button type="submit" className="search-btn" disabled={loading || !searchQuery.trim()}>
+            {loading ? 'Searching…' : 'Search'}
+          </button>
         </div>
       </form>
 
@@ -271,12 +273,14 @@ function App() {
         </div>
       )}
 
-      {loading && <LoadingSpinner />}
+      {/* Big spinner only when there's nothing on screen yet; otherwise the
+          current results stay in place (dimmed) until the new ones arrive */}
+      {loading && repositories.length === 0 && <LoadingSpinner />}
 
       {/* Jump Back In Section */}
       {!loading && user && recentRepos.length > 0 && !lastSearch && (
         <div className="jump-back-in">
-          <h2>⚡ Jump Back In</h2>
+          <h2>Jump Back In</h2>
           <p className="jump-subtitle">Your recently accessed repositories</p>
           
           <div className="recent-repos-grid">
@@ -295,14 +299,18 @@ function App() {
               >
                 <div className="recent-repo-header">
                   <h3>{repo.name}</h3>
-                  <span className="recent-badge">{repo.count} visits</span>
+                  <span className="recent-badge">
+                    {repo.count} {repo.count === 1 ? 'visit' : 'visits'}
+                  </span>
                 </div>
                 <p className="recent-repo-desc">
                   {repo.description || 'No description available'}
                 </p>
                 <div className="recent-repo-stats">
-                  <span>⭐ {repo.stars?.toLocaleString() || 0}</span>
-                  <span>💻 {repo.language}</span>
+                  <span aria-label={`${(repo.stars || 0).toLocaleString()} stars`}>
+                    <StarIcon /> {(repo.stars || 0).toLocaleString()}
+                  </span>
+                  <span><CodeIcon /> {repo.language}</span>
                 </div>
               </a>
             ))}
@@ -310,53 +318,60 @@ function App() {
         </div>
       )}
       
-      {/* Filters Panel */}
-      {showFilters && (
-        <div className="filters-panel">
-          <div className="filter-section">
-            <h3>Programming Languages</h3>
-            <div className="language-chips">
-              {popularLanguages.map(lang => (
-                <button
-                  key={lang}
-                  type="button"
-                  className={`language-chip ${filters.languages.includes(lang) ? 'active' : ''}`}
-                  onClick={() => handleLanguageToggle(lang)}
-                >
-                  {lang}
-                </button>
-              ))}
+      {/* Filters Panel: always mounted so it can slide open and closed;
+          inert while closed so its buttons can't be tabbed to */}
+      <div
+        id="filters-panel"
+        className={`filters-collapse${showFilters ? ' open' : ''}`}
+        inert={!showFilters}
+      >
+        <div className="filters-collapse-inner">
+          <div className="filters-panel">
+            <div className="filter-section">
+              <h3>Programming Languages</h3>
+              <div className="language-chips">
+                {popularLanguages.map(lang => (
+                  <button
+                    key={lang}
+                    type="button"
+                    className={`language-chip ${filters.languages.includes(lang) ? 'active' : ''}`}
+                    onClick={() => handleLanguageToggle(lang)}
+                  >
+                    {lang}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="filter-section">
-            <h3>Last Updated</h3>
-            <div className="date-filters">
-              {[
-                { value: 'all', label: 'Any Time' },
-                { value: 'week', label: 'Past Week' },
-                { value: 'month', label: 'Past Month' },
-                { value: 'year', label: 'Past Year' }
-              ].map(option => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`date-filter-btn ${filters.dateFilter === option.value ? 'active' : ''}`}
-                  onClick={() => handleDateFilterChange(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
+            <div className="filter-section">
+              <h3>Last Updated</h3>
+              <div className="date-filters">
+                {[
+                  { value: 'all', label: 'Any Time' },
+                  { value: 'week', label: 'Past Week' },
+                  { value: 'month', label: 'Past Month' },
+                  { value: 'year', label: 'Past Year' }
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`date-filter-btn ${filters.dateFilter === option.value ? 'active' : ''}`}
+                    onClick={() => handleDateFilterChange(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {hasActiveFilters && (
-            <button className="clear-filters-btn" onClick={clearFilters}>
-              Clear All Filters
-            </button>
-          )}
+            {hasActiveFilters && (
+              <button type="button" className="clear-filters-btn" onClick={clearFilters}>
+                Clear All Filters
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Active Filters Display */}
       {hasActiveFilters && (
@@ -415,8 +430,8 @@ function App() {
         </p>
       )}
 
-      {!loading && (
-        <div className="results">
+      {repositories.length > 0 && (
+        <div className={`results${loading ? ' is-loading' : ''}`} aria-busy={loading}>
           {repositories.map((repo) => (
             <div key={repo.id} className="repo-card">
               <h3>
@@ -437,9 +452,13 @@ function App() {
               </h3>
               <p>{repo.description || 'No description available'}</p>
               <div className="repo-stats">
-                <span>⭐ {repo.stargazers_count.toLocaleString()}</span>
-                <span>🍴 {repo.forks_count.toLocaleString()}</span>
-                <span>💻 {repo.language || 'N/A'}</span>
+                <span aria-label={`${repo.stargazers_count.toLocaleString()} stars`}>
+                  <StarIcon /> {repo.stargazers_count.toLocaleString()}
+                </span>
+                <span aria-label={`${repo.forks_count.toLocaleString()} forks`}>
+                  <ForkIcon /> {repo.forks_count.toLocaleString()}
+                </span>
+                <span><CodeIcon /> {repo.language || 'N/A'}</span>
               </div>
             </div>
           ))}
@@ -451,7 +470,7 @@ function App() {
         <div className="pagination">
           <button 
             onClick={() => goToPage(currentPage - 1)}
-            disabled={currentPage === 1}
+            disabled={loading || currentPage === 1}
             className="page-btn"
           >
             ← Previous
@@ -470,6 +489,8 @@ function App() {
                   <button
                     key={pageNum}
                     onClick={() => goToPage(pageNum)}
+                    disabled={loading}
+                    aria-current={currentPage === pageNum ? 'page' : undefined}
                     className={`page-number ${currentPage === pageNum ? 'active' : ''}`}
                   >
                     {pageNum}
@@ -484,7 +505,7 @@ function App() {
 
           <button 
             onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            disabled={loading || currentPage === totalPages}
             className="page-btn"
           >
             Next →
