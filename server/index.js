@@ -1,3 +1,4 @@
+const config = require('./config')
 const express = require('express')
 const cors = require('cors')
 const session = require('express-session')
@@ -8,9 +9,8 @@ const { rateLimit } = require('express-rate-limit')
 const pino = require('pino')
 const pinoHttp = require('pino-http')
 const { db, upsertVisit, getMostVisited, deleteUserVisits, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
-require('dotenv').config()
 
-const isProd = process.env.NODE_ENV === 'production'
+const { isProd } = config
 
 const logger = pino({
   level: 'info',
@@ -18,13 +18,13 @@ const logger = pino({
 })
 
 const app = express()
-const PORT = process.env.PORT || 5000
+const PORT = config.port
 
 app.use(pinoHttp({ logger }))
 
 // Middleware setup
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: config.frontendUrl,
   credentials: true
 }))
 app.use(express.json())
@@ -32,13 +32,13 @@ app.use(express.json())
 // Session configuration
 const sessionMiddleware = session({
   store: new SqliteStore({ client: db }),
-  secret: process.env.SESSION_SECRET,
+  secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
   rolling: true,
   name: 'connect.sid',
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProd,
     httpOnly: true,
     maxAge: 30 * 24 * 60 * 60 * 1000,
     sameSite: 'lax',
@@ -53,9 +53,9 @@ app.use(passport.initialize())
 app.use(passport.session())
 
 passport.use(new GitHubStrategy({
-    clientID: process.env.GITHUB_CLIENT_ID,
-    clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: (process.env.BACKEND_URL || 'http://localhost:5000') + '/auth/github/callback'
+    clientID: config.githubClientId,
+    clientSecret: config.githubClientSecret,
+    callbackURL: config.backendUrl + '/auth/github/callback'
   },
   function(accessToken, refreshToken, profile, done) {
     const user = {
@@ -82,11 +82,11 @@ app.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] 
 
 // GitHub OAuth callback - user returns here after authorizing
 app.get('/auth/github/callback',
-  passport.authenticate('github', { failureRedirect: process.env.FRONTEND_URL }),
+  passport.authenticate('github', { failureRedirect: config.frontendUrl }),
   (req, res) => {
     setNeedsPrompt(req.user.id)
     logger.info({ userId: req.user.id }, 'User logged in')
-    res.redirect(process.env.FRONTEND_URL)
+    res.redirect(config.frontendUrl)
   }
 )
 
@@ -263,5 +263,5 @@ app.get('/api/most-visited', (req, res) => {
 })
 
 app.listen(PORT, () => {
-  logger.info({ port: PORT, frontend: process.env.FRONTEND_URL }, 'Server started')
+  logger.info({ port: PORT, frontend: config.frontendUrl }, 'Server started')
 })
