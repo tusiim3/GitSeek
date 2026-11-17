@@ -55,6 +55,26 @@ async function withGitHubStub(fn) {
   return calls
 }
 
+describe('health check', () => {
+  test('responds without touching the database or sessions', async () => {
+    const originals = {}
+    for (const name of ['getSession', 'setSession', 'touchSession']) {
+      originals[name] = db[name]
+      db[name] = () => {
+        throw new Error(`health check called db.${name}`)
+      }
+    }
+    try {
+      const res = await request('/api/health', { cookie: 'connect.sid=s%3Aanything.sig' })
+      assert.equal(res.status, 200)
+      assert.deepEqual(await res.json(), { status: 'ok' })
+      assert.equal(res.headers.get('set-cookie'), null)
+    } finally {
+      Object.assign(db, originals)
+    }
+  })
+})
+
 describe('authentication', () => {
   test('protected routes require login', async () => {
     for (const [method, path] of [

@@ -32,6 +32,13 @@ if (isProd) {
   app.set('trust proxy', 1)
 }
 
+// Health check for uptime monitors (e.g. UptimeRobot keeping Render awake).
+// Registered before logging and sessions so it never touches the database
+// and doesn't fill the logs with a line every few minutes.
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' })
+})
+
 app.use(pinoHttp({ logger }))
 
 app.use(express.json())
