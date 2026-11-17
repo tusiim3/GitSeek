@@ -1,8 +1,7 @@
 const Database = require('better-sqlite3')
-const path = require('path')
+const { databasePath } = require('./config')
 
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'gitseek.db')
-const db = new Database(dbPath)
+const db = new Database(databasePath)
 
 // Enable WAL mode for better concurrent read performance
 db.pragma('journal_mode = WAL')
@@ -20,6 +19,15 @@ db.exec(`
     PRIMARY KEY (user_id, repo_url)
   );
 
+  CREATE TABLE IF NOT EXISTS recent_searches (
+    user_id     TEXT NOT NULL,
+    query       TEXT NOT NULL,
+    languages   TEXT NOT NULL DEFAULT '',
+    date_filter TEXT NOT NULL DEFAULT 'all',
+    searched_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, query, languages, date_filter)
+  );
+
   CREATE TABLE IF NOT EXISTS remember_preferences (
     user_id     TEXT PRIMARY KEY,
     needs_prompt INTEGER NOT NULL DEFAULT 1
@@ -27,6 +35,7 @@ db.exec(`
 `)
 
 const MAX_REPOS_PER_USER = 50
+const MAX_SEARCHES_PER_USER = 10
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 // --- visited_repos helpers ---
@@ -82,7 +91,8 @@ function upsertVisit(userId, repoUrl, repoName, repoData) {
   }
 }
 
-function getMostVisited(userId, limit = 10) {
+// Most recently visited first
+function getRecentRepos(userId, limit = 10) {
   return db.prepare(`
     SELECT repo_url AS url, repo_name AS name, visit_count AS count,
            last_visited AS lastVisited, description, stars, language
@@ -93,8 +103,51 @@ function getMostVisited(userId, limit = 10) {
   `).all(userId, limit)
 }
 
-function deleteUserVisits(userId) {
-  db.prepare(`DELETE FROM visited_repos WHERE user_id = ?`).run(userId)
+// --- recent_searches helpers ---
+
+// Re-searching moves an entry to the top: it is deleted and re-inserted so that
+// rowid (the tie-breaker for searches in the same millisecond) follows recency.
+const addRecentSearchTx = db.transaction((userId, query, languages, dateFilter) => {
+  db.prepare(`
+    DELETE FROM recent_searches
+    WHERE user_id = ? AND query = ? AND languages = ? AND date_filter = ?
+  `).run(userId, query, languages, dateFilter)
+
+  db.prepare(`
+    INSERT INTO recent_searches (user_id, query, languages, date_filter, searched_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(userId, query, languages, dateFilter, Date.now())
+
+  // Keep only the newest searches
+  db.prepare(`
+    DELETE FROM recent_searches
+    WHERE user_id = ? AND rowid NOT IN (
+      SELECT rowid FROM recent_searches
+      WHERE user_id = ?
+      ORDER BY searched_at DESC, rowid DESC
+      LIMIT ?
+    )
+  `).run(userId, userId, MAX_SEARCHES_PER_USER)
+})
+
+function addRecentSearch(userId, query, languages = [], dateFilter = 'all') {
+  addRecentSearchTx(userId, query, [...languages].sort().join(','), dateFilter)
+}
+
+function getRecentSearches(userId) {
+  return db.prepare(`
+    SELECT query, languages, date_filter AS dateFilter
+    FROM recent_searches
+    WHERE user_id = ?
+    ORDER BY searched_at DESC, rowid DESC
+  `).all(userId).map((row) => ({
+    ...row,
+    languages: row.languages ? row.languages.split(',') : []
+  }))
+}
+
+function clearRecentSearches(userId) {
+  db.prepare(`DELETE FROM recent_searches WHERE user_id = ?`).run(userId)
 }
 
 // --- remember_preferences helpers ---
@@ -123,8 +176,10 @@ function clearNeedsPrompt(userId) {
 module.exports = {
   db,
   upsertVisit,
-  getMostVisited,
-  deleteUserVisits,
+  getRecentRepos,
+  addRecentSearch,
+  getRecentSearches,
+  clearRecentSearches,
   setNeedsPrompt,
   getNeedsPrompt,
   clearNeedsPrompt

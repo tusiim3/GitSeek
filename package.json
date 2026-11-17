@@ -1,0 +1,18 @@
+{
+  "name": "gitseek",
+  "private": true,
+  "description": "Search GitHub repositories with quick stats, GitHub login and visit history",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "postinstall": "npm --prefix server ci && npm --prefix git-seek ci --include=dev",
+    "build": "npm --prefix git-seek run build",
+    "start": "node server/index.js",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix git-seek run dev",
+    "test": "npm --prefix server test",
+    "lint": "npm --prefix git-seek run lint"
+  }
+}

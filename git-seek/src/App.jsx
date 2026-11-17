@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getMostVisited } from './api/api'
+import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getRecentRepos, getRecentSearches, clearRecentSearches } from './api/api'
 import RememberMeModal from './components/RememberMeModal'
 import LoadingSpinner from './components/LoadingSpinner'
 
@@ -16,6 +16,9 @@ function App() {
   const [showRememberModal, setShowRememberModal] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [recentRepos, setRecentRepos] = useState([])
+  const [recentSearches, setRecentSearches] = useState([])
+  // The search whose results are on screen (null when nothing has been searched)
+  const [lastSearch, setLastSearch] = useState(null)
   const [filters, setFilters] = useState({
     languages: [],
     dateFilter: 'all'
@@ -29,37 +32,43 @@ function App() {
   useEffect(() => {
     const initAuth = async () => {
       const currentUser = await getCurrentUser()
-      
+
       if (currentUser) {
         setUser(currentUser)
-        
-        // Check if user needs to see "remember me" prompt
-        setTimeout(async () => {
-          const shouldShowPrompt = await checkRememberPrompt()
-          if (shouldShowPrompt) {
-            setShowRememberModal(true)
-          }
-        }, 500)
+
+        // Ask once after login whether to remember the session
+        if (await checkRememberPrompt()) {
+          setShowRememberModal(true)
+        }
       }
     }
-    
+
     initAuth()
   }, [])
 
-  // Load user's recently visited repos 
+  // Load user's recently visited repos
   const loadUserData = async () => {
     try {
-      const visited = await getMostVisited()
-      setRecentRepos(visited.slice(0, 3))  
+      const visited = await getRecentRepos()
+      setRecentRepos(visited.slice(0, 3))
     } catch (err) {
       console.error('Error loading user data:', err)
     }
   }
 
-  // Load recent repos whenever user changes (login/logout)
+  const loadRecentSearches = async () => {
+    try {
+      setRecentSearches(await getRecentSearches())
+    } catch (err) {
+      console.error('Error loading recent searches:', err)
+    }
+  }
+
+  // Load recent repos and searches whenever user changes (login/logout)
   useEffect(() => {
     if (user) {
       loadUserData()
+      loadRecentSearches()
     }
   }, [user])
 
@@ -90,29 +99,27 @@ function App() {
     setFilters({ languages: [], dateFilter: 'all' })
   }
 
-  const handleSearch = async (e, pageNum = 1) => {
-    if (e) e.preventDefault()
-    if (!searchQuery.trim()) return
+  // Run a search for a given query, filters and page
+  const runSearch = async (query, searchFilters, pageNum = 1) => {
+    if (!query.trim()) return
 
     setLoading(true)
     setError(null)
-    
-    // Reset to page 1 only on new searches, not on page changes
-    if (e) {
-      setCurrentPage(1)
-      pageNum = 1
-    }
+    setCurrentPage(pageNum)
+    setLastSearch({ query, filters: searchFilters })
 
     try {
-      // Fetch specific page from GitHub API
-      const data = await searchRepos(searchQuery, filters, pageNum)
-      
+      const data = await searchRepos(query, searchFilters, pageNum)
+
       setRepositories(data.items || [])
-      // Calculate total pages from GitHub's total count
+      // GitHub only returns the first 1,000 results (34 pages of 30)
       const maxPages = Math.min(Math.ceil(data.total_count / 30), 34)
       setTotalPages(maxPages)
+      if (user && pageNum === 1) {
+        loadRecentSearches()
+      }
     } catch (err) {
-      setError(err.message)
+      setError(err.response?.data?.error || 'Search failed. Please try again.')
       setRepositories([])
       setTotalPages(0)
     } finally {
@@ -120,16 +127,43 @@ function App() {
     }
   }
 
-  // Track when user clicks on a repo
-  const handleRepoClick = async (repo) => {
-    if (user) {
-      await trackRepoVisit(repo.html_url, repo.full_name, {
-        description: repo.description,
-        stargazers_count: repo.stargazers_count,
-        language: repo.language
-      })
+  const handleSearch = (e) => {
+    e.preventDefault()
+    runSearch(searchQuery, filters, 1)
+  }
+
+  // Re-run a saved search with its own filters
+  const handleRecentSearch = (search) => {
+    const savedFilters = { languages: search.languages, dateFilter: search.dateFilter }
+    setSearchQuery(search.query)
+    setFilters(savedFilters)
+    runSearch(search.query, savedFilters, 1)
+  }
+
+  // Clear the search box and results (brings back "Jump Back In")
+  const handleClearSearch = () => {
+    setSearchQuery('')
+    setRepositories([])
+    setTotalPages(0)
+    setCurrentPage(1)
+    setLastSearch(null)
+    setError(null)
+  }
+
+  const handleClearRecentSearches = async () => {
+    await clearRecentSearches()
+    setRecentSearches([])
+  }
+
+  // Track when a logged-in user opens a repo
+  const handleRepoClick = async (url, name, data) => {
+    if (!user) return
+    try {
+      await trackRepoVisit(url, name, data)
       // Refresh "Jump Back In" section
       loadUserData()
+    } catch (err) {
+      console.error('Error tracking visit:', err)
     }
   }
 
@@ -138,13 +172,13 @@ function App() {
     setUser(null)
     setShowRememberModal(false)
     setRecentRepos([])
+    setRecentSearches([])
     window.location.reload()
   }
 
   // Navigate to a different page
   const goToPage = (page) => {
-    setCurrentPage(page)
-    handleSearch(null, page) 
+    runSearch(lastSearch.query, lastSearch.filters, page)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -180,7 +214,18 @@ function App() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search GitHub repositories..."
+            aria-label="Search GitHub repositories"
           />
+          {(searchQuery || lastSearch) && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={handleClearSearch}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
         </div>
         <div className="search-actions">
           <button 
@@ -198,10 +243,38 @@ function App() {
         </div>
       </form>
 
+      {user && recentSearches.length > 0 && (
+        <div className="recent-searches">
+          <span className="recent-searches-label">Recent:</span>
+          {recentSearches.map((search) => (
+            <button
+              key={`${search.query}|${search.languages.join(',')}|${search.dateFilter}`}
+              type="button"
+              className="recent-search-chip"
+              onClick={() => handleRecentSearch(search)}
+              title={[
+                search.languages.length > 0 && `Languages: ${search.languages.join(', ')}`,
+                search.dateFilter !== 'all' && `Updated: past ${search.dateFilter}`
+              ].filter(Boolean).join(' · ') || undefined}
+            >
+              {search.query}
+              {search.languages.length + (search.dateFilter !== 'all' ? 1 : 0) > 0 && (
+                <span className="recent-search-filters">
+                  +{search.languages.length + (search.dateFilter !== 'all' ? 1 : 0)} filters
+                </span>
+              )}
+            </button>
+          ))}
+          <button type="button" className="clear-recent-btn" onClick={handleClearRecentSearches}>
+            Clear
+          </button>
+        </div>
+      )}
+
       {loading && <LoadingSpinner />}
 
       {/* Jump Back In Section */}
-      {!loading && user && recentRepos.length > 0 && repositories.length === 0 && (
+      {!loading && user && recentRepos.length > 0 && !lastSearch && (
         <div className="jump-back-in">
           <h2>⚡ Jump Back In</h2>
           <p className="jump-subtitle">Your recently accessed repositories</p>
@@ -214,6 +287,11 @@ function App() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="recent-repo-card"
+                onClick={() => handleRepoClick(repo.url, repo.name, {
+                  description: repo.description,
+                  stargazers_count: repo.stars,
+                  language: repo.language
+                })}
               >
                 <div className="recent-repo-header">
                   <h3>{repo.name}</h3>
@@ -314,13 +392,14 @@ function App() {
             <div className="why-link-dropdown">              
               <ul>
                 <li>
-                  -Access and search through your private repositories
-                  <br></br>-Get 5,000 API requests per hour instead of just 60
+                  -Search your private repositories too
+                  <br></br>-Get your own search limit instead of sharing one with every visitor
                   <br></br>-Save and revisit your recent searches
-                  <br></br>-Keep track of your most visited repositories
+                  <br></br>-Jump back into the repositories you opened recently
                 </li>
                 <li>
-                  Remember, OAuth authentication keeps your credentials safe - we never see your password
+                  GitHub will ask for access to your repositories so private ones can appear in
+                  search. GitSeek only reads search results, and OAuth means we never see your password.
                 </li>
               </ul>
             </div>
@@ -329,6 +408,12 @@ function App() {
       )}
 
       {error && <p className="error">{error}</p>}
+
+      {!loading && !error && lastSearch && repositories.length === 0 && (
+        <p className="no-results">
+          No repositories found for “{lastSearch.query}”. Try different keywords or fewer filters.
+        </p>
+      )}
 
       {!loading && (
         <div className="results">
@@ -339,11 +424,16 @@ function App() {
                   href={repo.html_url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  onClick={() => handleRepoClick(repo)}
+                  onClick={() => handleRepoClick(repo.html_url, repo.full_name, {
+                    description: repo.description,
+                    stargazers_count: repo.stargazers_count,
+                    language: repo.language
+                  })}
                   title={repo.full_name}
                 >
                   {repo.full_name}
                 </a>
+                {repo.private && <span className="private-badge">Private</span>}
               </h3>
               <p>{repo.description || 'No description available'}</p>
               <div className="repo-stats">

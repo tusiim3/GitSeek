@@ -19,7 +19,7 @@ body::before {
   transform: translate(-50%, -50%) rotate(15deg) perspective(1000px) rotateY(-20deg) rotateX(10deg);
   width: 800px;
   height: 800px;
-  background-image: url('/githubb.png');
+  background-image: url('/githubb.webp');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
@@ -50,11 +50,67 @@ h1 {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* Recent searches */
+.recent-searches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 600px;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.recent-searches-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
+
+.recent-searches button {
+  margin-top: 0;
+  animation: none;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+.recent-search-chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-search-chip:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.recent-search-filters {
+  margin-left: 0.35rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.recent-searches .clear-recent-btn {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+}
+
+.recent-searches .clear-recent-btn:hover:not(:disabled) {
+  background: transparent;
+  color: white;
+}
+
 /* Search Form */
 form {
   display: flex;
   gap: 1rem;
-  margin: auto;
+  margin: 0 auto;
   /*margin-left: 20rem;*/
   max-width: 600px;
   width: 100%;
@@ -81,6 +137,29 @@ input[type="text"] {
 
 input[type="text"]:focus {
   border-color: #0969da;
+}
+
+/* The input has a 1rem top margin, so centre the button on the input itself */
+.search-input-wrapper .clear-search-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: calc(50% + 0.5rem);
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  font-size: 1.25rem;
+  font-weight: 400;
+  border-radius: 50%;
+  background: transparent;
+  color: #57606a;
+  animation: none;
+}
+
+.search-input-wrapper .clear-search-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* Search Actions */
@@ -479,6 +558,12 @@ button:disabled {
   margin-bottom: 1rem;
 }
 
+.no-results {
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  margin-top: 2rem;
+}
+
 /* User Section */
 .user-section {
   position: fixed;
@@ -593,17 +678,28 @@ button:disabled {
 .repo-card h3 {
   margin: 0 0 0.75rem 0;
   font-size: 1.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   white-space: nowrap;
 }
 
 .repo-card h3 a {
   color: #0969da;
   text-decoration: none;
-  display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.private-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #57606a;
+  border: 1px solid #d0d7de;
+  border-radius: 2em;
+  padding: 0.1rem 0.5rem;
 }
 
 .repo-card h3 a:hover {
@@ -703,4 +799,28 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+/* Phones: stack the search box above its buttons and shrink the background */
+@media (max-width: 600px) {
+  .app {
+    padding: 1.5rem 1rem;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  form {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .search-actions {
+    margin-top: 0;
+  }
+
+  body::before {
+    width: 90vw;
+    height: 90vw;
+  }
 }
