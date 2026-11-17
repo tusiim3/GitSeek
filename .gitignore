@@ -9,3 +9,5 @@ Thumbs.db
 server/gitseek.db
 server/gitseek.db-shm
 server/gitseek.db-wal
+.neon
+.env.local

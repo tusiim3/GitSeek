@@ -96,9 +96,16 @@ Variables live in `server/.env` locally, or in your host's settings in productio
 | `DATABASE_URL` | in production | Postgres connection string. Leave empty to use SQLite instead | `postgresql://user:pass@host/db?sslmode=require` |
 | `DATABASE_PATH` | no | SQLite file, used when `DATABASE_URL` is empty. Relative paths are resolved from `server/` | `./gitseek.db` |
 | `PORT` | no | Port the server listens on (most hosts set this) | `5000` |
+| `TRUST_PROXY_HOPS` | no | Proxies in front of the app, so rate limiting sees each visitor's real IP. Defaults to `3` in production (Render: Cloudflare, load balancer, local proxy) and `0` otherwise | `3` |
 | `GITHUB_TOKEN` | no | Fine-grained GitHub token used for searches by visitors who aren't logged in (see below) | `github_pat_...` |
 
 **Database:** with `DATABASE_URL` empty, the server uses the SQLite file at `DATABASE_PATH`, so local development needs no setup. With `DATABASE_URL` set, it uses Postgres and creates its tables on startup.
+
+The server reads env files in this order, and the first one to set a variable wins: real environment variables (e.g. on Render), then `.env.local` at the repo root (written by the Neon CLI), then `server/.env`. To use SQLite while a `.env.local` exists, run with an empty value:
+
+```bash
+DATABASE_URL= npm run dev:server
+```
 
 **`GITHUB_TOKEN`:** without it, all anonymous visitors share GitHub's limit of 10 searches per minute for the server's IP. Logged-in users always use their own token. To create one:
 
@@ -116,9 +123,31 @@ The app runs as one free **Render** web service, which serves both the API and t
 
 ### 1. Neon (database)
 
-1. Sign up at [neon.tech](https://neon.tech) and create a project. Pick the region closest to where you'll run Render.
-2. On the project dashboard, click **Connect** and copy the connection string. It looks like `postgresql://user:password@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`.
-3. Optional: change `sslmode=require` to `sslmode=verify-full` in the string. Both are secure; `verify-full` just stops the Postgres driver from printing a notice about the setting.
+This repo is already linked to a Neon project via `neon.ts`, managed with the [Neon CLI](https://neon.com/docs/cli). The link itself (`.neon`) and the pulled secrets (`.env.local`) are gitignored.
+
+**Your own project:** sign up at [neon.tech](https://neon.tech) and create a project in the region closest to your Render region. Then, from the repo root:
+
+```bash
+npm i -g neon@latest
+```
+
+```bash
+neon login
+```
+
+```bash
+neon init -y --project-id <your-project-id> --branch production --services postgres
+```
+
+```bash
+neon deploy
+```
+
+`neon deploy` applies `neon.ts` to the branch and writes `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct) to `.env.local`, which the server loads automatically. Run `neon env pull` later to refresh them.
+
+**For Render, use the pooled `DATABASE_URL`** (its host contains `-pooler`). Copy it from `.env.local`, or from the Neon Console under **Connect** with *Connection pooling* on. GitSeek uses `node-postgres` (`pg`) with a connection pool, which is what Neon recommends for a long-running server like this. The unpooled URL is only needed for tools like `pg_dump`, or for running the Postgres tests (`TEST_DATABASE_URL`), which set a per-connection schema that the pooler doesn't support.
+
+The connection string ends in `sslmode=require`. `pg` treats that as full certificate checking and prints a one-time notice about it; change it to `sslmode=verify-full` if you'd rather not see the notice.
 
 GitSeek creates its tables automatically on first start. Neon pauses the database when it's idle and wakes it on the next query, so the first request after a quiet spell can take a second longer. The health check deliberately doesn't touch the database, so it doesn't keep Neon awake.
 
@@ -171,6 +200,7 @@ Render's free plan includes 750 instance hours a month, enough for one service r
 ```
 .
 ├─ package.json            # root scripts (install, build, start, dev, test)
+├─ neon.ts                 # Neon project policy, applied with `neon deploy`
 ├─ .env.example
 ├─ assets/original/        # full-resolution source images (not served)
 ├─ git-seek/               # React frontend

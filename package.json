@@ -14,5 +14,9 @@
     "dev:client": "npm --prefix git-seek run dev",
     "test": "npm --prefix server test",
     "lint": "npm --prefix git-seek run lint"
+  },
+  "devDependencies": {
+    "@neon/config": "^1.14.2",
+    "@neon/env": "^2.1.5"
   }
 }
