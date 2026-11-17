@@ -5,12 +5,12 @@ const express = require('express')
 const session = require('express-session')
 const passport = require('passport')
 const GitHubStrategy = require('passport-github2').Strategy
-const SqliteSessionStore = require('./sessionStore')
+const EncryptedSessionStore = require('./sessionStore')
 const { SearchError, buildSearchQuery, parsePage, searchRepos } = require('./github')
 const { rateLimit } = require('express-rate-limit')
 const pino = require('pino')
 const pinoHttp = require('pino-http')
-const { db, upsertVisit, getRecentRepos, addRecentSearch, getRecentSearches, clearRecentSearches, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
+const db = require('./db')
 
 const { isProd } = config
 
@@ -37,7 +37,7 @@ app.use(pinoHttp({ logger }))
 app.use(express.json())
 
 // Session configuration
-const sessionStore = new SqliteSessionStore({ db, secret: config.sessionSecret })
+const sessionStore = new EncryptedSessionStore({ db, secret: config.sessionSecret })
 const sessionMiddleware = session({
   store: sessionStore,
   secret: config.sessionSecret,
@@ -95,24 +95,24 @@ app.get('/auth/github', passport.authenticate('github', { scope: ['repo'] }))
 // GitHub OAuth callback - user returns here after authorizing
 app.get('/auth/github/callback',
   passport.authenticate('github', { failureRedirect: '/' }),
-  (req, res) => {
-    setNeedsPrompt(req.user.id)
+  async (req, res) => {
+    await db.setNeedsPrompt(req.user.id)
     logger.info({ userId: req.user.id }, 'User logged in')
     res.redirect('/')
   }
 )
 
 // Check if user needs to see the "remember me" prompt
-app.get('/auth/check-prompt', (req, res) => {
+app.get('/auth/check-prompt', async (req, res) => {
   if (req.isAuthenticated()) {
-    res.json({ showPrompt: getNeedsPrompt(req.user.id) })
+    res.json({ showPrompt: await db.getNeedsPrompt(req.user.id) })
   } else {
     res.json({ showPrompt: false })
   }
 })
 
 // Save user's "remember me" preference
-app.post('/auth/remember', (req, res) => {
+app.post('/auth/remember', async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
@@ -122,7 +122,7 @@ app.post('/auth/remember', (req, res) => {
   // Default to "remember me" (30 days) if user dismisses or closes modal
   const sessionDuration = remember !== false ? 30 * 24 * 60 * 60 * 1000 : 2 * 60 * 60 * 1000
   req.session.cookie.maxAge = sessionDuration
-  clearNeedsPrompt(req.user.id)
+  await db.clearNeedsPrompt(req.user.id)
 
   logger.info({ userId: req.user.id, duration: remember !== false ? '30 days' : '2 hours' }, 'Session duration set')
 
@@ -198,8 +198,10 @@ app.get('/api/search', searchLimiter, async (req, res) => {
     })
 
     // Remember new searches (not page changes) for logged-in users
+    // (a failure here shouldn't fail the search itself)
     if (loggedIn && page === 1) {
-      addRecentSearch(req.user.id, String(q).trim(), languageList, dateFilter)
+      await db.addRecentSearch(req.user.id, String(q).trim(), languageList, dateFilter)
+        .catch((err) => logger.error({ err }, 'Saving recent search failed'))
     }
     res.json(results)
   } catch (error) {
@@ -220,28 +222,28 @@ function requireAuth(req, res, next) {
 }
 
 // Track repository visit
-app.post('/api/track-visit', requireAuth, (req, res) => {
+app.post('/api/track-visit', requireAuth, async (req, res) => {
   const { repoUrl, repoName, repoData } = req.body ?? {}
   const validUrl = typeof repoUrl === 'string' && repoUrl.startsWith('https://github.com/')
   if (!validUrl || typeof repoName !== 'string' || !repoName) {
     return res.status(400).json({ error: 'repoUrl and repoName are required' })
   }
-  upsertVisit(req.user.id, repoUrl, repoName, repoData)
+  await db.upsertVisit(req.user.id, repoUrl, repoName, repoData)
   res.json({ message: 'Visit tracked' })
 })
 
 // Get user's most recently visited repos
-app.get('/api/recent-repos', requireAuth, (req, res) => {
-  res.json({ repos: getRecentRepos(req.user.id, 10) })
+app.get('/api/recent-repos', requireAuth, async (req, res) => {
+  res.json({ repos: await db.getRecentRepos(req.user.id, 10) })
 })
 
 // Get and clear the user's recent searches
-app.get('/api/recent-searches', requireAuth, (req, res) => {
-  res.json({ searches: getRecentSearches(req.user.id) })
+app.get('/api/recent-searches', requireAuth, async (req, res) => {
+  res.json({ searches: await db.getRecentSearches(req.user.id) })
 })
 
-app.delete('/api/recent-searches', requireAuth, (req, res) => {
-  clearRecentSearches(req.user.id)
+app.delete('/api/recent-searches', requireAuth, async (req, res) => {
+  await db.clearRecentSearches(req.user.id)
   res.json({ message: 'Recent searches cleared' })
 })
 
@@ -255,4 +257,12 @@ if (fs.existsSync(distDir)) {
   })
 }
 
-module.exports = { app, logger, sessionStore }
+// Errors thrown in routes (e.g. the database is unreachable) end up here.
+// Express 5 forwards rejected promises from async handlers automatically.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  logger.error({ err }, 'Unhandled error')
+  res.status(500).json({ error: 'Something went wrong. Please try again.' })
+})
+
+module.exports = { app, db, logger, sessionStore }

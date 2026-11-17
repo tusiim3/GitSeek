@@ -2,13 +2,14 @@ require('./setup')
 const { test, describe, before, after } = require('node:test')
 const assert = require('node:assert/strict')
 const signature = require('cookie-signature')
-const { app, sessionStore } = require('../app')
+const { app, db, sessionStore } = require('../app')
 
 let server
 let baseUrl
 const realFetch = global.fetch
 
 before(async () => {
+  await db.init()
   await new Promise((resolve) => {
     server = app.listen(0, resolve)
   })
