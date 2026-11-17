@@ -26,8 +26,9 @@ const logger = pino({
 
 const app = express()
 
-// Railway (and most hosts) terminate HTTPS at a proxy in front of the app.
-// Trusting it lets secure cookies and per-client rate limiting work.
+// Render (like most hosts) terminates HTTPS at a proxy in front of the app.
+// Trusting one hop, as Render's docs recommend for Express, lets secure
+// cookies and per-client rate limiting work.
 if (isProd) {
   app.set('trust proxy', 1)
 }
