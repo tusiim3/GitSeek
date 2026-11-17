@@ -1,6 +1,12 @@
-// Load .env before anything else reads process.env
+// Load env files before anything else reads process.env. Values already in
+// the real environment (e.g. Render's env vars) always win; between the files,
+// the first one to set a variable wins:
+//   1. .env.local at the repo root, written by `neon deploy` / `neon env pull`
+//   2. server/.env, your own local settings
 const path = require('path')
-require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true })
+const dotenv = require('dotenv')
+dotenv.config({ path: path.join(__dirname, '..', '.env.local'), quiet: true })
+dotenv.config({ path: path.join(__dirname, '.env'), quiet: true })
 
 const required = ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'SESSION_SECRET']
 const missing = required.filter((name) => !process.env[name])
