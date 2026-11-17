@@ -15,7 +15,12 @@ const { db, upsertVisit, getRecentRepos, addRecentSearch, getRecentSearches, cle
 const { isProd } = config
 
 const logger = pino({
-  level: 'info',
+  level: process.env.LOG_LEVEL || 'info',
+  // Session cookies and tokens must never end up in logs
+  redact: {
+    paths: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+    censor: '[redacted]'
+  },
   transport: isProd ? undefined : { target: 'pino-pretty', options: { colorize: true } }
 })
 
