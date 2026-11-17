@@ -37,8 +37,9 @@ app.use(pinoHttp({ logger }))
 app.use(express.json())
 
 // Session configuration
+const sessionStore = new SqliteSessionStore({ db, secret: config.sessionSecret })
 const sessionMiddleware = session({
-  store: new SqliteSessionStore({ db, secret: config.sessionSecret }),
+  store: sessionStore,
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
@@ -254,4 +255,4 @@ if (fs.existsSync(distDir)) {
   })
 }
 
-module.exports = { app, logger }
+module.exports = { app, logger, sessionStore }
