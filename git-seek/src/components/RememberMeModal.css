@@ -88,20 +88,20 @@
 }
 
 .btn-remember {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
 }
 
 .btn-remember:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  background: var(--accent-hover);
 }
 
 .btn-forget {
-  background: #e0e0e0;
-  color: #555;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  color: var(--text);
 }
 
 .btn-forget:hover {
-  background: #d0d0d0;
+  background: #eaeef2;
 }
