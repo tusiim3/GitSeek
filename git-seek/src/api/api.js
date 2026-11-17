@@ -40,7 +40,7 @@ export const setRememberPreference = async (remember) => {
 }
 
 export const logout = async () => {
-  await api.get('/auth/logout')
+  await api.post('/auth/logout')
 }
 
 export const trackRepoVisit = async (repoUrl, repoName, repoData) => {

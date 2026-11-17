@@ -92,10 +92,6 @@ function getMostVisited(userId, limit = 10) {
   `).all(userId, limit)
 }
 
-function deleteUserVisits(userId) {
-  db.prepare(`DELETE FROM visited_repos WHERE user_id = ?`).run(userId)
-}
-
 // --- remember_preferences helpers ---
 
 function setNeedsPrompt(userId) {
@@ -123,7 +119,6 @@ module.exports = {
   db,
   upsertVisit,
   getMostVisited,
-  deleteUserVisits,
   setNeedsPrompt,
   getNeedsPrompt,
   clearNeedsPrompt

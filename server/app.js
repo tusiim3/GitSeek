@@ -10,7 +10,7 @@ const { SearchError, buildSearchQuery, parsePage, searchRepos } = require('./git
 const { rateLimit } = require('express-rate-limit')
 const pino = require('pino')
 const pinoHttp = require('pino-http')
-const { db, upsertVisit, getMostVisited, deleteUserVisits, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
+const { db, upsertVisit, getMostVisited, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
 
 const { isProd } = config
 
@@ -130,28 +130,20 @@ app.post('/auth/remember', (req, res) => {
   })
 })
 
-// Logout and cleanup
-app.get('/auth/logout', (req, res) => {
-  const userId = req.user?.id
-
-  if (userId) {
-    deleteUserVisits(userId)
-    clearNeedsPrompt(userId)
-  }
-
+// Log out. Visit history is kept so it is there on the next login.
+// POST so that other sites can't log users out with a simple link.
+app.post('/auth/logout', (req, res) => {
   req.logout((err) => {
     if (err) {
+      logger.error({ err }, 'Logout failed')
       return res.status(500).json({ error: 'Logout failed' })
     }
     req.session.destroy((err) => {
       if (err) {
-        return res.status(500).json({ error: 'Session destruction failed' })
+        logger.error({ err }, 'Session destruction failed')
+        return res.status(500).json({ error: 'Logout failed' })
       }
-      res.clearCookie('connect.sid', {
-        path: '/',
-        httpOnly: true,
-        sameSite: 'lax'
-      })
+      res.clearCookie('connect.sid', { path: '/', httpOnly: true, sameSite: 'lax', secure: isProd })
       res.json({ message: 'Logged out successfully' })
     })
   })
