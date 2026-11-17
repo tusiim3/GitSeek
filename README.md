@@ -7,6 +7,8 @@ GitSeek is a web app for searching GitHub repositories, with quick stats such as
 - **Recent searches**: your last 10 searches, with their filters, one click away
 - **Jump Back In**: the repositories you opened most recently, kept across logins
 
+**Live:** https://gitseek-o7pm.onrender.com
+
 ---
 
 ## Tech stack
@@ -96,6 +98,7 @@ Variables live in `server/.env` locally, or in your host's settings in productio
 | `DATABASE_URL` | in production | Postgres connection string. Leave empty to use SQLite instead | `postgresql://user:pass@host/db?sslmode=require` |
 | `DATABASE_PATH` | no | SQLite file, used when `DATABASE_URL` is empty. Relative paths are resolved from `server/` | `./gitseek.db` |
 | `PORT` | no | Port the server listens on (most hosts set this) | `5000` |
+| `LOG_LEVEL` | no | Server log level (`info` by default; `debug`, `warn`, `error` or `silent` also work) | `info` |
 | `TRUST_PROXY_HOPS` | no | Proxies in front of the app, so rate limiting sees each visitor's real IP. Defaults to `3` in production (Render: Cloudflare, load balancer, local proxy) and `0` otherwise | `3` |
 | `GITHUB_TOKEN` | no | Fine-grained GitHub token used for searches by visitors who aren't logged in (see below) | `github_pat_...` |
 
@@ -107,7 +110,9 @@ The server reads env files in this order, and the first one to set a variable wi
 DATABASE_URL= npm run dev:server
 ```
 
-**`GITHUB_TOKEN`:** without it, all anonymous visitors share GitHub's limit of 10 searches per minute for the server's IP. Logged-in users always use their own token. To create one:
+**Search limits:** GitSeek itself allows each visitor 30 searches per minute. On top of that, GitHub limits searches per token: without `GITHUB_TOKEN`, all anonymous visitors share GitHub's limit of 10 searches per minute for the server's IP. Logged-in users always use their own token (30 per minute from GitHub).
+
+**`GITHUB_TOKEN`:** to create one: To create one:
 
 1. GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
 2. Give it a name (e.g. `GitSeek search`) and an **expiration** (e.g. 90 days; set a reminder to renew it)
@@ -123,7 +128,7 @@ The app runs as one free **Render** web service, which serves both the API and t
 
 ### 1. Neon (database)
 
-This repo is already linked to a Neon project via `neon.ts`, managed with the [Neon CLI](https://neon.com/docs/cli). The link itself (`.neon`) and the pulled secrets (`.env.local`) are gitignored.
+The database is managed with the [Neon CLI](https://neon.com/docs/cli). `neon.ts` holds the branch policy and is committed. The link to a specific Neon project (`.neon`) and the pulled secrets (`.env.local`) are gitignored, so each clone links its own project.
 
 **Your own project:** sign up at [neon.tech](https://neon.tech) and create a project in the region closest to your Render region. Then, from the repo root:
 
@@ -147,7 +152,7 @@ neon deploy
 
 **For Render, use the pooled `DATABASE_URL`** (its host contains `-pooler`). Copy it from `.env.local`, or from the Neon Console under **Connect** with *Connection pooling* on. GitSeek uses `node-postgres` (`pg`) with a connection pool, which is what Neon recommends for a long-running server like this. The unpooled URL is only needed for tools like `pg_dump`, or for running the Postgres tests (`TEST_DATABASE_URL`), which set a per-connection schema that the pooler doesn't support.
 
-The connection string ends in `sslmode=require`. `pg` treats that as full certificate checking and prints a one-time notice about it; change it to `sslmode=verify-full` if you'd rather not see the notice.
+The connection string contains `sslmode=require`. `pg` treats that as full certificate checking and prints a one-time notice about it; change it to `sslmode=verify-full` if you'd rather not see the notice.
 
 GitSeek creates its tables automatically on first start. Neon pauses the database when it's idle and wakes it on the next query, so the first request after a quiet spell can take a second longer. The health check deliberately doesn't touch the database, so it doesn't keep Neon awake.
 
@@ -191,7 +196,7 @@ Put its Client ID and Secret in Render's environment variables, then redeploy.
 4. **Monitoring interval:** 5 minutes
 5. Create the monitor. It should show *Up*, and you'll get an email if the app goes down.
 
-Render's free plan includes 750 instance hours a month, enough for one service running all month.
+Render's free plan includes 750 instance hours a month **per workspace, shared by all its free services**. GitSeek kept awake all month uses about 720–744 of them. If other free services in the same workspace are awake too, the hours can run out before the month ends; Render then suspends the free services until the next month. Keep only one always-on free service per workspace, or let the others sleep.
 
 ---
 
@@ -209,7 +214,7 @@ Render's free plan includes 750 instance hours a month, enough for one service r
 │  ├─ public/
 │  └─ src/
 │     ├─ api/api.js        # calls to the backend
-│     ├─ components/       # LoadingSpinner, RememberMeModal
+│     ├─ components/       # Icons, LoadingSpinner, RememberMeModal
 │     ├─ App.jsx
 │     └─ App.css
 └─ server/                 # Express backend
