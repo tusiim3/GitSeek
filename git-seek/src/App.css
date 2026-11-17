@@ -499,7 +499,7 @@ button:disabled {
   display: flex;
   gap: 1rem;
   font-size: 0.85rem;
-  color: #666;
+  color: var(--muted);
   padding-top: 0.5rem;
   border-top: 1px solid #e0e0e0;
 }
@@ -844,9 +844,20 @@ button:disabled {
 
 .repo-stats {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   font-size: 0.875rem;
-  color: #656d76;
+  color: var(--muted);
+}
+
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.recent-repo-stats span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .repo-stats span {

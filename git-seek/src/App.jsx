@@ -3,6 +3,7 @@ import './App.css'
 import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getRecentRepos, getRecentSearches, clearRecentSearches } from './api/api'
 import RememberMeModal from './components/RememberMeModal'
 import LoadingSpinner from './components/LoadingSpinner'
+import { StarIcon, ForkIcon, CodeIcon } from './components/Icons'
 
 function App() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -279,7 +280,7 @@ function App() {
       {/* Jump Back In Section */}
       {!loading && user && recentRepos.length > 0 && !lastSearch && (
         <div className="jump-back-in">
-          <h2>⚡ Jump Back In</h2>
+          <h2>Jump Back In</h2>
           <p className="jump-subtitle">Your recently accessed repositories</p>
           
           <div className="recent-repos-grid">
@@ -298,14 +299,18 @@ function App() {
               >
                 <div className="recent-repo-header">
                   <h3>{repo.name}</h3>
-                  <span className="recent-badge">{repo.count} visits</span>
+                  <span className="recent-badge">
+                    {repo.count} {repo.count === 1 ? 'visit' : 'visits'}
+                  </span>
                 </div>
                 <p className="recent-repo-desc">
                   {repo.description || 'No description available'}
                 </p>
                 <div className="recent-repo-stats">
-                  <span>⭐ {repo.stars?.toLocaleString() || 0}</span>
-                  <span>💻 {repo.language}</span>
+                  <span aria-label={`${(repo.stars || 0).toLocaleString()} stars`}>
+                    <StarIcon /> {(repo.stars || 0).toLocaleString()}
+                  </span>
+                  <span><CodeIcon /> {repo.language}</span>
                 </div>
               </a>
             ))}
@@ -447,9 +452,13 @@ function App() {
               </h3>
               <p>{repo.description || 'No description available'}</p>
               <div className="repo-stats">
-                <span>⭐ {repo.stargazers_count.toLocaleString()}</span>
-                <span>🍴 {repo.forks_count.toLocaleString()}</span>
-                <span>💻 {repo.language || 'N/A'}</span>
+                <span aria-label={`${repo.stargazers_count.toLocaleString()} stars`}>
+                  <StarIcon /> {repo.stargazers_count.toLocaleString()}
+                </span>
+                <span aria-label={`${repo.forks_count.toLocaleString()} forks`}>
+                  <ForkIcon /> {repo.forks_count.toLocaleString()}
+                </span>
+                <span><CodeIcon /> {repo.language || 'N/A'}</span>
               </div>
             </div>
           ))}
