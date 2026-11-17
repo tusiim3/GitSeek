@@ -104,7 +104,6 @@ h1 {
 
 .recent-searches button {
   margin-top: 0;
-  animation: none;
   padding: 0.35rem 0.85rem;
   font-size: 0.85rem;
   font-weight: 500;
@@ -190,7 +189,6 @@ input[type="text"]:focus {
   border-radius: 50%;
   background: transparent;
   color: #57606a;
-  animation: none;
 }
 
 .search-input-wrapper .clear-search-btn:hover:not(:disabled) {
@@ -373,8 +371,9 @@ input[type="text"]:focus {
   transition: transform 0.2s;
 }
 
-.filter-badge button:hover {
-  transform: scale(1.2);
+.filter-badge button:hover:not(:disabled) {
+  background: none;
+  color: var(--on-dark-muted);
 }
 
 button {
@@ -386,20 +385,8 @@ button {
   border: none;
   border-radius: 25px;
   cursor: pointer;
-  transition: background-color 0.3s;
-  animation: slideIn 0.2s ease-out;
+  transition: background-color 0.2s;
   margin-top:1rem;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
 }
 
 button:hover:not(:disabled) {
@@ -420,7 +407,7 @@ button:disabled {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
   padding: 2rem;
-  animation: slideDown 0.3s ease-out;
+  animation: cardIn 0.2s ease-out both;
 }
 
 .jump-back-in h2 {
@@ -556,19 +543,8 @@ button:disabled {
   border-radius: 12px;
   padding: 1.5rem;
   text-align: left;
-  animation: slideDown 0.3s ease-out;
+  animation: cardIn 0.2s ease-out both;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .why-link-dropdown h3 {
@@ -671,7 +647,6 @@ button:disabled {
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1.5rem;
   margin-top: 2rem;
-  animation: fadeIn 0.5s ease-in;
   width: 100%;
   max-width: 1200px;
   margin-left: auto;
@@ -688,25 +663,14 @@ button:disabled {
   transition: opacity 0.2s ease;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Repository Card */
 .repo-card {
   background: white;
   border: 1px solid #d0d7de;
   border-radius: 12px;
   padding: 1.5rem;
-  transition: transform 0.2s, box-shadow 0.2s;
-  animation: slideUp 0.4s ease-out backwards;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  animation: cardIn 0.2s ease-out both;
   height: 180px;
   display: flex;
   flex-direction: column;
@@ -714,10 +678,11 @@ button:disabled {
   overflow: hidden;
 }
 
-@keyframes slideUp {
+/* A short, subtle fade for new results: no long slides or staggering */
+@keyframes cardIn {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -725,16 +690,9 @@ button:disabled {
   }
 }
 
-.repo-card:nth-child(1) { animation-delay: 0.05s; }
-.repo-card:nth-child(2) { animation-delay: 0.1s; }
-.repo-card:nth-child(3) { animation-delay: 0.15s; }
-.repo-card:nth-child(4) { animation-delay: 0.2s; }
-.repo-card:nth-child(5) { animation-delay: 0.25s; }
-.repo-card:nth-child(6) { animation-delay: 0.3s; }
-
 .repo-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  border-color: #afb8c1;
+  box-shadow: 0 4px 12px rgba(31, 35, 40, 0.12);
 }
 
 .repo-card h3 {
@@ -895,5 +853,17 @@ button:disabled {
   body::before {
     width: 90vw;
     height: 90vw;
+  }
+}
+
+/* Respect the system "reduce motion" setting: no animations or transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
