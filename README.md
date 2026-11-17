@@ -1,25 +1,28 @@
 # GitSeek
 
-GitSeek is a web application to search for GitHub repositories and show quick stats like number of stars and forks. It allows linking to the user's GitHub account for access to private repositories and tracks your recently visited repos across sessions.
+GitSeek is a web app for searching GitHub repositories, with quick stats such as stars, forks and language. Linking your GitHub account adds:
+
+- **Private repositories** in your search results
+- **Your own search limit** instead of one shared by every anonymous visitor
+- **Recent searches**: your last 10 searches, with their filters, one click away
+- **Jump Back In**: the repositories you opened most recently, kept across logins
 
 ---
 
 ## Tech stack
 
-- Language: JavaScript
-- Runtime: Node.js
-- Package manager: npm
-- Frontend: React 19 + Vite
-- Backend: Express 5 + Passport.js (GitHub OAuth2)
-- Database: SQLite (via better-sqlite3)
+- **Frontend:** React 19 + Vite
+- **Backend:** Node.js, Express 5, Passport.js (GitHub OAuth)
+- **Database:** SQLite via better-sqlite3 (sessions, visit history, recent searches)
+
+The backend also serves the built frontend, so the whole app runs as **one service on one URL**. In development, Vite proxies `/api` and `/auth` to the backend, so it behaves the same way.
 
 ---
 
 ## Prerequisites
 
-- Git
-- Node.js LTS and npm
-- A GitHub OAuth App (see setup below)
+- Node.js **22 or newer** and npm
+- A GitHub OAuth App (see below)
 
 ---
 
@@ -29,94 +32,97 @@ GitSeek is a web application to search for GitHub repositories and show quick st
 2. Fill in:
    - **Application name**: `GitSeek Dev`
    - **Homepage URL**: `http://localhost:5173`
-   - **Authorization callback URL**: `http://localhost:5000/auth/github/callback`
+   - **Authorization callback URL**: `http://localhost:5173/auth/github/callback`
 3. Click **Register application**
-4. Copy the **Client ID** and generate a **Client Secret** — you'll need both for your `.env`
+4. Copy the **Client ID** and generate a **Client Secret** for your `.env`
+
+> GitSeek asks for the `repo` scope so private repositories can appear in search. GitHub has no read-only version of this scope for OAuth apps, so the consent screen mentions full access. GitSeek only uses it to run searches.
 
 ---
 
 ## Quick start
 
 ```bash
-# clone
 git clone https://github.com/tusiim3/GitSeek.git
 cd GitSeek
 
-# install backend dependencies
-cd server && npm install && cd ..
+# installs the root, server and frontend dependencies
+npm install
 
-# install frontend dependencies
-cd git-seek && npm install && cd ..
-
-# create env file
+# create the env file, then fill in your values
 cp .env.example server/.env
-# edit server/.env with your values
-
-# run backend (from /server)
-cd server && node index.js
-
-# run frontend (from /git-seek, in a separate terminal)
-cd git-seek && npm run dev
 ```
+
+Generate a session secret with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Run the backend and frontend in two terminals:
+
+```bash
+npm run dev:server
+```
+
+```bash
+npm run dev:client
+```
+
+Open http://localhost:5173.
+
+Other scripts:
+
+| Command | What it does |
+|---|---|
+| `npm test` | Runs the server tests |
+| `npm run lint` | Lints the frontend |
+| `npm run build` | Builds the frontend into `git-seek/dist` |
+| `npm start` | Runs the server, which also serves the built frontend |
 
 ---
 
 ## Environment variables
 
-All variables live in `server/.env`. Copy `.env.example` as a starting point.
+Variables live in `server/.env` locally, or in your host's settings in production. `.env.example` is a starting point.
 
-| Variable | Description | Example |
-|---|---|---|
-| `PORT` | Port the backend listens on | `5000` |
-| `GITHUB_CLIENT_ID` | OAuth App Client ID from GitHub | `Ov23li...` |
-| `GITHUB_CLIENT_SECRET` | OAuth App Client Secret from GitHub | `abc123...` |
-| `SESSION_SECRET` | Long random string for signing session cookies | `change-me-to-something-long` |
-| `FRONTEND_URL` | URL of the frontend (used for CORS and redirects) | `http://localhost:5173` |
-| `BACKEND_URL` | URL of the backend (used to build the OAuth callback URL) | `http://localhost:5000` |
-| `NODE_ENV` | Set to `production` in prod to enable secure cookies | `development` |
-| `DATABASE_PATH` | Path to the SQLite database file | `./gitseek.db` |
+| Variable | Required | Description | Example |
+|---|---|---|---|
+| `GITHUB_CLIENT_ID` | yes | OAuth App Client ID | `Ov23li...` |
+| `GITHUB_CLIENT_SECRET` | yes | OAuth App Client Secret | `abc123...` |
+| `SESSION_SECRET` | yes | Long random string. Signs cookies and encrypts stored sessions; changing it logs everyone out | `3f9c...` |
+| `APP_URL` | in production | Public URL of the app, used for the OAuth callback | `http://localhost:5173` |
+| `NODE_ENV` | in production | `production` enables secure cookies and proxy support | `development` |
+| `DATABASE_PATH` | no | SQLite file. Relative paths are resolved from `server/` | `./gitseek.db` |
+| `PORT` | no | Port the server listens on (most hosts set this) | `5000` |
+| `GITHUB_TOKEN` | no | A GitHub token (no scopes needed) used for searches by visitors who aren't logged in | `github_pat_...` |
+
+Without `GITHUB_TOKEN`, all anonymous visitors share GitHub's limit of 10 searches per minute per server IP. Logged-in users always use their own token.
 
 ---
 
-## Deploying
+## Deploying to Railway
 
-The frontend (static) and backend (Node server) deploy separately.
+The app deploys as a single Railway service, with a volume so the database survives redeploys.
 
-### Frontend — Vercel
-
-1. Import the repo into [Vercel](https://vercel.com)
-2. Set the **Root Directory** to `git-seek`
-3. Build command: `npm run build` / Output: `dist`
-4. Add an environment variable: `VITE_API_URL=https://your-backend-url`
-5. Deploy
-
-### Backend — Railway or Render
-
-**Railway:**
-1. Create a new project, connect your repo
-2. Set the root to `server/`
-3. Start command: `node index.js`
-4. Add all environment variables from the table above (with production values)
-5. Set `NODE_ENV=production`, `BACKEND_URL=https://your-railway-url`, `FRONTEND_URL=https://your-vercel-url`
-
-**Render:**
-1. New Web Service, connect your repo
-2. Root directory: `server`
-3. Build command: `npm install`
-4. Start command: `node index.js`
-5. Add environment variables as above
-
-### Production GitHub OAuth App
-
-Create a second OAuth App for production (same steps as dev setup), using your real deployed URLs:
-- **Homepage URL**: `https://your-frontend-url`
-- **Authorization callback URL**: `https://your-backend-url/auth/github/callback`
-
-Use the production app's Client ID and Secret in your hosting platform's environment variables.
-
-### Database persistence
-
-By default the SQLite file (`gitseek.db`) lives in the server directory. On Railway/Render, this resets on each deploy unless you attach a persistent volume. To use a volume, mount it and set `DATABASE_PATH=/mount/path/gitseek.db` in your env vars.
+1. **Create the service:** in [Railway](https://railway.app), go to **New Project → Deploy from GitHub repo** and pick this repo. Leave the root directory as the repo root. Railway runs `npm install` (which installs the server and frontend), then `npm run build`, then `npm start`.
+2. **Add a volume:** right-click the service → **Attach volume**, with mount path `/data`.
+3. **Get a URL:** under **Settings → Networking**, click **Generate Domain**, e.g. `https://gitseek-production.up.railway.app`.
+4. **Create a production OAuth App** (same steps as above) with:
+   - **Homepage URL**: your Railway URL
+   - **Authorization callback URL**: your Railway URL + `/auth/github/callback`
+5. **Set variables** on the service:
+   ```
+   NODE_ENV=production
+   APP_URL=https://<your-domain>.up.railway.app
+   GITHUB_CLIENT_ID=<production app client id>
+   GITHUB_CLIENT_SECRET=<production app client secret>
+   SESSION_SECRET=<long random string>
+   DATABASE_PATH=/data/gitseek.db
+   GITHUB_TOKEN=<optional>
+   ```
+   Railway sets `PORT` itself.
+6. Redeploy. Search should work right away, and **Link Your GitHub Account** should log you in.
 
 ---
 
@@ -124,24 +130,26 @@ By default the SQLite file (`gitseek.db`) lives in the server directory. On Rail
 
 ```
 .
-├─ README.md
-├─ LICENSE
+├─ package.json            # root scripts (install, build, start, dev, test)
 ├─ .env.example
-├─ git-seek/
+├─ assets/original/        # full-resolution source images (not served)
+├─ git-seek/               # React frontend
 │  ├─ index.html
+│  ├─ vite.config.js       # dev proxy to the backend
 │  ├─ public/
 │  └─ src/
-│      ├─ api/
-│      │   └─ api.js
-│      └─ components/
-│          ├─ LoadingSpinner.jsx
-│          └─ RememberMeModal.jsx
-│      ├─ App.css
-│      ├─ App.jsx
-│      └─ main.jsx
-└─ server/
-   ├─ db.js
-   └─ index.js
+│     ├─ api/api.js        # calls to the backend
+│     ├─ components/       # LoadingSpinner, RememberMeModal
+│     ├─ App.jsx
+│     └─ App.css
+└─ server/                 # Express backend
+   ├─ index.js             # starts the server
+   ├─ app.js               # routes, auth and static file serving
+   ├─ config.js            # loads and checks environment variables
+   ├─ db.js                # SQLite tables and queries
+   ├─ github.js            # GitHub search query building and API calls
+   ├─ sessionStore.js      # encrypted SQLite session store
+   └─ test/                # node:test suites
 ```
 
 ---
@@ -150,16 +158,16 @@ By default the SQLite file (`gitseek.db`) lives in the server directory. On Rail
 
 1. Fork the repo
 2. Create a branch: `git checkout -b fix/short-description`
-3. Make changes
-4. Submit a pull request with a clear description of the change
+3. Make your changes and run `npm test` and `npm run lint`
+4. Open a pull request with a clear description of the change
 
 ---
 
 ## License
 
-MIT License — see LICENSE file.
+MIT License. See the LICENSE file.
 
 ## Contact
 
-Name — Tusiime Mark
+Name: Tusiime Mark
 Email: tusiimejohnmark@gmail.com

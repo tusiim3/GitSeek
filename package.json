@@ -11,6 +11,8 @@
     "build": "npm --prefix git-seek run build",
     "start": "node server/index.js",
     "dev:server": "npm --prefix server run dev",
-    "dev:client": "npm --prefix git-seek run dev"
+    "dev:client": "npm --prefix git-seek run dev",
+    "test": "npm --prefix server test",
+    "lint": "npm --prefix git-seek run lint"
   }
 }
