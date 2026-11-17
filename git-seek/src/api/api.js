@@ -47,9 +47,18 @@ export const trackRepoVisit = async (repoUrl, repoName, repoData) => {
   await api.post('/api/track-visit', { repoUrl, repoName, repoData })
 }
 
-export const getMostVisited = async () => {
-  const response = await api.get('/api/most-visited')
+export const getRecentRepos = async () => {
+  const response = await api.get('/api/recent-repos')
   return response.data.repos
+}
+
+export const getRecentSearches = async () => {
+  const response = await api.get('/api/recent-searches')
+  return response.data.searches
+}
+
+export const clearRecentSearches = async () => {
+  await api.delete('/api/recent-searches')
 }
 
 export const getAuthUrl = () => '/auth/github'

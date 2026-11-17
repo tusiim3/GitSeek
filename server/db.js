@@ -19,6 +19,15 @@ db.exec(`
     PRIMARY KEY (user_id, repo_url)
   );
 
+  CREATE TABLE IF NOT EXISTS recent_searches (
+    user_id     TEXT NOT NULL,
+    query       TEXT NOT NULL,
+    languages   TEXT NOT NULL DEFAULT '',
+    date_filter TEXT NOT NULL DEFAULT 'all',
+    searched_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, query, languages, date_filter)
+  );
+
   CREATE TABLE IF NOT EXISTS remember_preferences (
     user_id     TEXT PRIMARY KEY,
     needs_prompt INTEGER NOT NULL DEFAULT 1
@@ -26,6 +35,7 @@ db.exec(`
 `)
 
 const MAX_REPOS_PER_USER = 50
+const MAX_SEARCHES_PER_USER = 10
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 // --- visited_repos helpers ---
@@ -81,7 +91,8 @@ function upsertVisit(userId, repoUrl, repoName, repoData) {
   }
 }
 
-function getMostVisited(userId, limit = 10) {
+// Most recently visited first
+function getRecentRepos(userId, limit = 10) {
   return db.prepare(`
     SELECT repo_url AS url, repo_name AS name, visit_count AS count,
            last_visited AS lastVisited, description, stars, language
@@ -90,6 +101,44 @@ function getMostVisited(userId, limit = 10) {
     ORDER BY last_visited DESC
     LIMIT ?
   `).all(userId, limit)
+}
+
+// --- recent_searches helpers ---
+
+function addRecentSearch(userId, query, languages = [], dateFilter = 'all') {
+  db.prepare(`
+    INSERT INTO recent_searches (user_id, query, languages, date_filter, searched_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, query, languages, date_filter) DO UPDATE SET
+      searched_at = excluded.searched_at
+  `).run(userId, query, [...languages].sort().join(','), dateFilter, Date.now())
+
+  // Keep only the newest searches
+  db.prepare(`
+    DELETE FROM recent_searches
+    WHERE user_id = ? AND rowid NOT IN (
+      SELECT rowid FROM recent_searches
+      WHERE user_id = ?
+      ORDER BY searched_at DESC
+      LIMIT ?
+    )
+  `).run(userId, userId, MAX_SEARCHES_PER_USER)
+}
+
+function getRecentSearches(userId) {
+  return db.prepare(`
+    SELECT query, languages, date_filter AS dateFilter
+    FROM recent_searches
+    WHERE user_id = ?
+    ORDER BY searched_at DESC
+  `).all(userId).map((row) => ({
+    ...row,
+    languages: row.languages ? row.languages.split(',') : []
+  }))
+}
+
+function clearRecentSearches(userId) {
+  db.prepare(`DELETE FROM recent_searches WHERE user_id = ?`).run(userId)
 }
 
 // --- remember_preferences helpers ---
@@ -118,7 +167,10 @@ function clearNeedsPrompt(userId) {
 module.exports = {
   db,
   upsertVisit,
-  getMostVisited,
+  getRecentRepos,
+  addRecentSearch,
+  getRecentSearches,
+  clearRecentSearches,
   setNeedsPrompt,
   getNeedsPrompt,
   clearNeedsPrompt

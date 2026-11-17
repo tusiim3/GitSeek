@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getMostVisited } from './api/api'
+import { searchRepos, getCurrentUser, logout, getAuthUrl, trackRepoVisit, checkRememberPrompt, setRememberPreference, getRecentRepos, getRecentSearches, clearRecentSearches } from './api/api'
 import RememberMeModal from './components/RememberMeModal'
 import LoadingSpinner from './components/LoadingSpinner'
 
@@ -16,6 +16,7 @@ function App() {
   const [showRememberModal, setShowRememberModal] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [recentRepos, setRecentRepos] = useState([])
+  const [recentSearches, setRecentSearches] = useState([])
   const [filters, setFilters] = useState({
     languages: [],
     dateFilter: 'all'
@@ -49,17 +50,26 @@ function App() {
   // Load user's recently visited repos 
   const loadUserData = async () => {
     try {
-      const visited = await getMostVisited()
-      setRecentRepos(visited.slice(0, 3))  
+      const visited = await getRecentRepos()
+      setRecentRepos(visited.slice(0, 3))
     } catch (err) {
       console.error('Error loading user data:', err)
     }
   }
 
-  // Load recent repos whenever user changes (login/logout)
+  const loadRecentSearches = async () => {
+    try {
+      setRecentSearches(await getRecentSearches())
+    } catch (err) {
+      console.error('Error loading recent searches:', err)
+    }
+  }
+
+  // Load recent repos and searches whenever user changes (login/logout)
   useEffect(() => {
     if (user) {
       loadUserData()
+      loadRecentSearches()
     }
   }, [user])
 
@@ -90,27 +100,24 @@ function App() {
     setFilters({ languages: [], dateFilter: 'all' })
   }
 
-  const handleSearch = async (e, pageNum = 1) => {
-    if (e) e.preventDefault()
-    if (!searchQuery.trim()) return
+  // Run a search for a given query, filters and page
+  const runSearch = async (query, searchFilters, pageNum = 1) => {
+    if (!query.trim()) return
 
     setLoading(true)
     setError(null)
-    
-    // Reset to page 1 only on new searches, not on page changes
-    if (e) {
-      setCurrentPage(1)
-      pageNum = 1
-    }
+    setCurrentPage(pageNum)
 
     try {
-      // Fetch specific page from GitHub API
-      const data = await searchRepos(searchQuery, filters, pageNum)
-      
+      const data = await searchRepos(query, searchFilters, pageNum)
+
       setRepositories(data.items || [])
-      // Calculate total pages from GitHub's total count
+      // GitHub only returns the first 1,000 results (34 pages of 30)
       const maxPages = Math.min(Math.ceil(data.total_count / 30), 34)
       setTotalPages(maxPages)
+      if (user && pageNum === 1) {
+        loadRecentSearches()
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Search failed. Please try again.')
       setRepositories([])
@@ -118,6 +125,24 @@ function App() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSearch = (e) => {
+    e.preventDefault()
+    runSearch(searchQuery, filters, 1)
+  }
+
+  // Re-run a saved search with its own filters
+  const handleRecentSearch = (search) => {
+    const savedFilters = { languages: search.languages, dateFilter: search.dateFilter }
+    setSearchQuery(search.query)
+    setFilters(savedFilters)
+    runSearch(search.query, savedFilters, 1)
+  }
+
+  const handleClearRecentSearches = async () => {
+    await clearRecentSearches()
+    setRecentSearches([])
   }
 
   // Track when user clicks on a repo
@@ -138,13 +163,13 @@ function App() {
     setUser(null)
     setShowRememberModal(false)
     setRecentRepos([])
+    setRecentSearches([])
     window.location.reload()
   }
 
   // Navigate to a different page
   const goToPage = (page) => {
-    setCurrentPage(page)
-    handleSearch(null, page) 
+    runSearch(searchQuery, filters, page)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -197,6 +222,34 @@ function App() {
           )}
         </div>
       </form>
+
+      {user && recentSearches.length > 0 && (
+        <div className="recent-searches">
+          <span className="recent-searches-label">Recent:</span>
+          {recentSearches.map((search) => (
+            <button
+              key={`${search.query}|${search.languages.join(',')}|${search.dateFilter}`}
+              type="button"
+              className="recent-search-chip"
+              onClick={() => handleRecentSearch(search)}
+              title={[
+                search.languages.length > 0 && `Languages: ${search.languages.join(', ')}`,
+                search.dateFilter !== 'all' && `Updated: past ${search.dateFilter}`
+              ].filter(Boolean).join(' · ') || undefined}
+            >
+              {search.query}
+              {search.languages.length + (search.dateFilter !== 'all' ? 1 : 0) > 0 && (
+                <span className="recent-search-filters">
+                  +{search.languages.length + (search.dateFilter !== 'all' ? 1 : 0)} filters
+                </span>
+              )}
+            </button>
+          ))}
+          <button type="button" className="clear-recent-btn" onClick={handleClearRecentSearches}>
+            Clear
+          </button>
+        </div>
+      )}
 
       {loading && <LoadingSpinner />}
 

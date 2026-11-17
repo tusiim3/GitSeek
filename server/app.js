@@ -10,7 +10,7 @@ const { SearchError, buildSearchQuery, parsePage, searchRepos } = require('./git
 const { rateLimit } = require('express-rate-limit')
 const pino = require('pino')
 const pinoHttp = require('pino-http')
-const { db, upsertVisit, getMostVisited, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
+const { db, upsertVisit, getRecentRepos, addRecentSearch, getRecentSearches, clearRecentSearches, setNeedsPrompt, getNeedsPrompt, clearNeedsPrompt } = require('./db')
 
 const { isProd } = config
 
@@ -183,12 +183,18 @@ app.get('/api/search', searchLimiter, async (req, res) => {
 
     logger.info({ query, page }, 'GitHub search')
 
+    const loggedIn = req.isAuthenticated()
     const results = await searchRepos({
       query,
       page,
-      userToken: req.isAuthenticated() ? req.user.accessToken : undefined,
+      userToken: loggedIn ? req.user.accessToken : undefined,
       serverToken: config.githubToken
     })
+
+    // Remember new searches (not page changes) for logged-in users
+    if (loggedIn && page === 1) {
+      addRecentSearch(req.user.id, String(q).trim(), languageList, dateFilter)
+    }
     res.json(results)
   } catch (error) {
     if (error instanceof SearchError) {
@@ -199,24 +205,34 @@ app.get('/api/search', searchLimiter, async (req, res) => {
   }
 })
 
-// Track repository visit
-app.post('/api/track-visit', (req, res) => {
+// Require login for the routes below that use it
+function requireAuth(req, res, next) {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' })
   }
+  next()
+}
 
+// Track repository visit
+app.post('/api/track-visit', requireAuth, (req, res) => {
   const { repoUrl, repoName, repoData } = req.body
   upsertVisit(req.user.id, repoUrl, repoName, repoData)
   res.json({ message: 'Visit tracked' })
 })
 
 // Get user's most recently visited repos
-app.get('/api/most-visited', (req, res) => {
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ error: 'Not authenticated' })
-  }
+app.get('/api/recent-repos', requireAuth, (req, res) => {
+  res.json({ repos: getRecentRepos(req.user.id, 10) })
+})
 
-  res.json({ repos: getMostVisited(req.user.id, 10) })
+// Get and clear the user's recent searches
+app.get('/api/recent-searches', requireAuth, (req, res) => {
+  res.json({ searches: getRecentSearches(req.user.id) })
+})
+
+app.delete('/api/recent-searches', requireAuth, (req, res) => {
+  clearRecentSearches(req.user.id)
+  res.json({ message: 'Recent searches cleared' })
 })
 
 // Serve the built frontend (git-seek/dist) so the whole app runs on one origin.

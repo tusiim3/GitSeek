@@ -50,6 +50,62 @@ h1 {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* Recent searches */
+.recent-searches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 600px;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.recent-searches-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+}
+
+.recent-searches button {
+  margin-top: 0;
+  animation: none;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 50px;
+}
+
+.recent-search-chip {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-search-chip:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.recent-search-filters {
+  margin-left: 0.35rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.recent-searches .clear-recent-btn {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: underline;
+}
+
+.recent-searches .clear-recent-btn:hover:not(:disabled) {
+  background: transparent;
+  color: white;
+}
+
 /* Search Form */
 form {
   display: flex;
