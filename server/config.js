@@ -17,6 +17,25 @@ if (missing.length > 0) {
 }
 
 const dbPath = process.env.DATABASE_PATH || 'gitseek.db'
+const databaseUrl = process.env.DATABASE_URL?.trim() || undefined
+
+// A malformed DATABASE_URL otherwise fails later with a confusing DNS error
+// (pg resolves it against a placeholder host called "base"). Never log the value.
+if (databaseUrl && !isPostgresUrl(databaseUrl)) {
+  console.error('DATABASE_URL is not a valid Postgres connection string.')
+  console.error('It must start with postgres:// or postgresql://. Paste the bare connection')
+  console.error("string, without a leading 'psql', quotes or spaces.")
+  process.exit(1)
+}
+
+function isPostgresUrl(value) {
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'postgres:' || url.protocol === 'postgresql:') && url.hostname !== ''
+  } catch {
+    return false
+  }
+}
 
 module.exports = {
   isProd: process.env.NODE_ENV === 'production',
@@ -29,7 +48,7 @@ module.exports = {
   // Optional token for searches by visitors who are not logged in
   githubToken: process.env.GITHUB_TOKEN || undefined,
   // Postgres connection string (e.g. Neon). Empty or unset means SQLite is used.
-  databaseUrl: process.env.DATABASE_URL?.trim() || undefined,
+  databaseUrl,
   // SQLite file. Relative paths are resolved from the server folder, not the shell's cwd
   databasePath: dbPath === ':memory:' ? dbPath : path.resolve(__dirname, dbPath)
 }
