@@ -19,7 +19,7 @@ body::before {
   transform: translate(-50%, -50%) rotate(15deg) perspective(1000px) rotateY(-20deg) rotateX(10deg);
   width: 800px;
   height: 800px;
-  background-image: url('/githubb.png');
+  background-image: url('/githubb.webp');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
