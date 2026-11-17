@@ -56,7 +56,9 @@ app.use(passport.session())
 passport.use(new GitHubStrategy({
     clientID: config.githubClientId,
     clientSecret: config.githubClientSecret,
-    callbackURL: config.appUrl + '/auth/github/callback'
+    callbackURL: config.appUrl + '/auth/github/callback',
+    // Guards the OAuth round trip against login CSRF
+    state: true
   },
   function(accessToken, refreshToken, profile, done) {
     const user = {
@@ -79,7 +81,9 @@ passport.deserializeUser((user, done) => {
 })
 
 // Initiates GitHub OAuth flow
-app.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] }))
+// 'repo' is needed for private repositories to appear in search results.
+// GitHub has no read-only variant of this scope for OAuth apps.
+app.get('/auth/github', passport.authenticate('github', { scope: ['repo'] }))
 
 // GitHub OAuth callback - user returns here after authorizing
 app.get('/auth/github/callback',

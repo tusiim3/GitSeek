@@ -593,17 +593,28 @@ button:disabled {
 .repo-card h3 {
   margin: 0 0 0.75rem 0;
   font-size: 1.25rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   white-space: nowrap;
 }
 
 .repo-card h3 a {
   color: #0969da;
   text-decoration: none;
-  display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.private-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #57606a;
+  border: 1px solid #d0d7de;
+  border-radius: 2em;
+  padding: 0.1rem 0.5rem;
 }
 
 .repo-card h3 a:hover {

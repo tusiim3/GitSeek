@@ -344,6 +344,7 @@ function App() {
                 >
                   {repo.full_name}
                 </a>
+                {repo.private && <span className="private-badge">Private</span>}
               </h3>
               <p>{repo.description || 'No description available'}</p>
               <div className="repo-stats">
