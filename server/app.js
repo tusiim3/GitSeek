@@ -20,6 +20,12 @@ const logger = pino({
 
 const app = express()
 
+// Railway (and most hosts) terminate HTTPS at a proxy in front of the app.
+// Trusting it lets secure cookies and per-client rate limiting work.
+if (isProd) {
+  app.set('trust proxy', 1)
+}
+
 app.use(pinoHttp({ logger }))
 
 app.use(express.json())
