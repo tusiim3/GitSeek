@@ -185,7 +185,7 @@ function App() {
   const hasActiveFilters = filters.languages.length > 0 || filters.dateFilter !== 'all'
 
   return (
-    <div className="app">
+    <div className={`app${lastSearch ? '' : ' is-idle'}`}>
       {showRememberModal && user && (
         <RememberMeModal
           user={user}
@@ -235,11 +235,10 @@ function App() {
           >
             Filters {hasActiveFilters && `(${filters.languages.length + (filters.dateFilter !== 'all' ? 1 : 0)})`}
           </button>
-          {searchQuery && (
-            <button type="submit" disabled={loading}>
-              {loading ? 'Searching...' : 'Search'}
-            </button>
-          )}
+          {/* Always rendered so typing never changes the layout */}
+          <button type="submit" className="search-btn" disabled={loading || !searchQuery.trim()}>
+            {loading ? 'Searching…' : 'Search'}
+          </button>
         </div>
       </form>
 

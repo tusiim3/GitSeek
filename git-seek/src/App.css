@@ -48,6 +48,10 @@ body::before {
   pointer-events: none;
 }
 
+/* Content is anchored to the top. Before the first search the large top
+   padding keeps the search box near the middle of the screen; once there are
+   results it eases down, so the page glides up instead of re-centring (and
+   jumping) every time the content changes height. */
 .app {
   max-width: 1200px;
   margin: 0 auto;
@@ -55,10 +59,15 @@ body::before {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  transition: padding-top 0.35s ease;
+}
+
+.app.is-idle {
+  padding-top: 24vh;
 }
 
 h1 {
@@ -182,6 +191,11 @@ input[type="text"]:focus {
   background: rgba(0, 0, 0, 0.08);
 }
 
+/* Fixed width so "Search" → "Searching…" doesn't shift the buttons */
+.search-btn {
+  min-width: 8.5rem;
+}
+
 /* Search Actions */
 .search-actions {
   display: flex;
@@ -208,6 +222,8 @@ input[type="text"]:focus {
 
 /* Filters Panel */
 .filters-panel {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 800px;
   margin: 2rem auto;
   background: rgba(255, 255, 255, 0.95);
@@ -374,6 +390,8 @@ button:disabled {
 
 /* Jump Back In Section */
 .jump-back-in {
+  box-sizing: border-box;
+  width: 100%;
   max-width: 1200px;
   margin: 2rem auto;
   background: rgba(255, 255, 255, 0.95);
@@ -812,6 +830,10 @@ button:disabled {
 @media (max-width: 600px) {
   .app {
     padding: 1.5rem 1rem;
+  }
+
+  .app.is-idle {
+    padding-top: 12vh;
   }
 
   h1 {
