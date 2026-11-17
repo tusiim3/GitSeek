@@ -5,7 +5,7 @@ const express = require('express')
 const session = require('express-session')
 const passport = require('passport')
 const GitHubStrategy = require('passport-github2').Strategy
-const SqliteStore = require('better-sqlite3-session-store')(session)
+const SqliteSessionStore = require('./sessionStore')
 const { rateLimit } = require('express-rate-limit')
 const pino = require('pino')
 const pinoHttp = require('pino-http')
@@ -32,7 +32,7 @@ app.use(express.json())
 
 // Session configuration
 const sessionMiddleware = session({
-  store: new SqliteStore({ client: db }),
+  store: new SqliteSessionStore({ db, secret: config.sessionSecret }),
   secret: config.sessionSecret,
   resave: false,
   saveUninitialized: false,
