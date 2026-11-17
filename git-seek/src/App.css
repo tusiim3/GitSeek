@@ -656,6 +656,16 @@ button:disabled {
   margin-right: auto;
 }
 
+/* While the next page or search loads, keep the old results visible but faded */
+.results.is-loading {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.results {
+  transition: opacity 0.2s ease;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

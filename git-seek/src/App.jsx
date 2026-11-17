@@ -270,7 +270,9 @@ function App() {
         </div>
       )}
 
-      {loading && <LoadingSpinner />}
+      {/* Big spinner only when there's nothing on screen yet; otherwise the
+          current results stay in place (dimmed) until the new ones arrive */}
+      {loading && repositories.length === 0 && <LoadingSpinner />}
 
       {/* Jump Back In Section */}
       {!loading && user && recentRepos.length > 0 && !lastSearch && (
@@ -414,8 +416,8 @@ function App() {
         </p>
       )}
 
-      {!loading && (
-        <div className="results">
+      {repositories.length > 0 && (
+        <div className={`results${loading ? ' is-loading' : ''}`} aria-busy={loading}>
           {repositories.map((repo) => (
             <div key={repo.id} className="repo-card">
               <h3>
@@ -450,7 +452,7 @@ function App() {
         <div className="pagination">
           <button 
             onClick={() => goToPage(currentPage - 1)}
-            disabled={currentPage === 1}
+            disabled={loading || currentPage === 1}
             className="page-btn"
           >
             ← Previous
@@ -469,6 +471,8 @@ function App() {
                   <button
                     key={pageNum}
                     onClick={() => goToPage(pageNum)}
+                    disabled={loading}
+                    aria-current={currentPage === pageNum ? 'page' : undefined}
                     className={`page-number ${currentPage === pageNum ? 'active' : ''}`}
                   >
                     {pageNum}
@@ -483,7 +487,7 @@ function App() {
 
           <button 
             onClick={() => goToPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
+            disabled={loading || currentPage === totalPages}
             className="page-btn"
           >
             Next →
