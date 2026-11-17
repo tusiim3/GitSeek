@@ -96,6 +96,7 @@ Variables live in `server/.env` locally, or in your host's settings in productio
 | `DATABASE_URL` | in production | Postgres connection string. Leave empty to use SQLite instead | `postgresql://user:pass@host/db?sslmode=require` |
 | `DATABASE_PATH` | no | SQLite file, used when `DATABASE_URL` is empty. Relative paths are resolved from `server/` | `./gitseek.db` |
 | `PORT` | no | Port the server listens on (most hosts set this) | `5000` |
+| `TRUST_PROXY_HOPS` | no | Proxies in front of the app, so rate limiting sees each visitor's real IP. Defaults to `3` in production (Render: Cloudflare, load balancer, local proxy) and `0` otherwise | `3` |
 | `GITHUB_TOKEN` | no | Fine-grained GitHub token used for searches by visitors who aren't logged in (see below) | `github_pat_...` |
 
 **Database:** with `DATABASE_URL` empty, the server uses the SQLite file at `DATABASE_PATH`, so local development needs no setup. With `DATABASE_URL` set, it uses Postgres and creates its tables on startup.

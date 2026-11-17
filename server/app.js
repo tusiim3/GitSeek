@@ -26,11 +26,15 @@ const logger = pino({
 
 const app = express()
 
-// Render (like most hosts) terminates HTTPS at a proxy in front of the app.
-// Trusting one hop, as Render's docs recommend for Express, lets secure
-// cookies and per-client rate limiting work.
-if (isProd) {
-  app.set('trust proxy', 1)
+// Requests reach the app through proxies that terminate HTTPS. Trusting the
+// right number of hops lets secure cookies work and makes req.ip the visitor's
+// address, so rate limiting is per visitor. On Render a request passes through
+// Cloudflare, Render's load balancer and a local proxy (3 hops), seen in its
+// X-Forwarded-For as "<visitor>, <cloudflare>, <load balancer>". Too few hops
+// and every visitor looks like the load balancer; too many and visitors could
+// spoof their address. Override with TRUST_PROXY_HOPS if the host differs.
+if (config.trustProxyHops > 0) {
+  app.set('trust proxy', config.trustProxyHops)
 }
 
 // Health check for uptime monitors (e.g. UptimeRobot keeping Render awake).

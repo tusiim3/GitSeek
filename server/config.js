@@ -28,6 +28,16 @@ if (databaseUrl && !isPostgresUrl(databaseUrl)) {
   process.exit(1)
 }
 
+function parseHops(value, fallback) {
+  if (value === undefined || value.trim() === '') return fallback
+  const hops = Number(value)
+  if (!Number.isInteger(hops) || hops < 0) {
+    console.error('TRUST_PROXY_HOPS must be a whole number (0 or more).')
+    process.exit(1)
+  }
+  return hops
+}
+
 function isPostgresUrl(value) {
   try {
     const url = new URL(value)
@@ -47,6 +57,8 @@ module.exports = {
   sessionSecret: process.env.SESSION_SECRET,
   // Optional token for searches by visitors who are not logged in
   githubToken: process.env.GITHUB_TOKEN || undefined,
+  // Proxies in front of the app (see app.js). Defaults to Render's 3 in production.
+  trustProxyHops: parseHops(process.env.TRUST_PROXY_HOPS, process.env.NODE_ENV === 'production' ? 3 : 0),
   // Postgres connection string (e.g. Neon). Empty or unset means SQLite is used.
   databaseUrl,
   // SQLite file. Relative paths are resolved from the server folder, not the shell's cwd
