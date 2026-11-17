@@ -231,6 +231,8 @@ function App() {
           <button 
             type="button" 
             className="filter-toggle-btn"
+            aria-expanded={showFilters}
+            aria-controls="filters-panel"
             onClick={() => setShowFilters(!showFilters)}
           >
             Filters {hasActiveFilters && `(${filters.languages.length + (filters.dateFilter !== 'all' ? 1 : 0)})`}
@@ -311,53 +313,60 @@ function App() {
         </div>
       )}
       
-      {/* Filters Panel */}
-      {showFilters && (
-        <div className="filters-panel">
-          <div className="filter-section">
-            <h3>Programming Languages</h3>
-            <div className="language-chips">
-              {popularLanguages.map(lang => (
-                <button
-                  key={lang}
-                  type="button"
-                  className={`language-chip ${filters.languages.includes(lang) ? 'active' : ''}`}
-                  onClick={() => handleLanguageToggle(lang)}
-                >
-                  {lang}
-                </button>
-              ))}
+      {/* Filters Panel: always mounted so it can slide open and closed;
+          inert while closed so its buttons can't be tabbed to */}
+      <div
+        id="filters-panel"
+        className={`filters-collapse${showFilters ? ' open' : ''}`}
+        inert={!showFilters}
+      >
+        <div className="filters-collapse-inner">
+          <div className="filters-panel">
+            <div className="filter-section">
+              <h3>Programming Languages</h3>
+              <div className="language-chips">
+                {popularLanguages.map(lang => (
+                  <button
+                    key={lang}
+                    type="button"
+                    className={`language-chip ${filters.languages.includes(lang) ? 'active' : ''}`}
+                    onClick={() => handleLanguageToggle(lang)}
+                  >
+                    {lang}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="filter-section">
-            <h3>Last Updated</h3>
-            <div className="date-filters">
-              {[
-                { value: 'all', label: 'Any Time' },
-                { value: 'week', label: 'Past Week' },
-                { value: 'month', label: 'Past Month' },
-                { value: 'year', label: 'Past Year' }
-              ].map(option => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`date-filter-btn ${filters.dateFilter === option.value ? 'active' : ''}`}
-                  onClick={() => handleDateFilterChange(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
+            <div className="filter-section">
+              <h3>Last Updated</h3>
+              <div className="date-filters">
+                {[
+                  { value: 'all', label: 'Any Time' },
+                  { value: 'week', label: 'Past Week' },
+                  { value: 'month', label: 'Past Month' },
+                  { value: 'year', label: 'Past Year' }
+                ].map(option => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`date-filter-btn ${filters.dateFilter === option.value ? 'active' : ''}`}
+                    onClick={() => handleDateFilterChange(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {hasActiveFilters && (
-            <button className="clear-filters-btn" onClick={clearFilters}>
-              Clear All Filters
-            </button>
-          )}
+            {hasActiveFilters && (
+              <button type="button" className="clear-filters-btn" onClick={clearFilters}>
+                Clear All Filters
+              </button>
+            )}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Active Filters Display */}
       {hasActiveFilters && (

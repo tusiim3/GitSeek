@@ -220,7 +220,26 @@ input[type="text"]:focus {
   background: var(--dark-control-hover);
 }
 
-/* Filters Panel */
+/* Filters Panel: slides open by animating the grid row from 0 to its full height */
+.filters-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  width: 100%;
+  max-width: 800px;
+  transition: grid-template-rows 0.3s ease, opacity 0.25s ease;
+}
+
+.filters-collapse.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.filters-collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .filters-panel {
   box-sizing: border-box;
   width: 100%;
@@ -229,7 +248,6 @@ input[type="text"]:focus {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
   padding: 2rem;
-  animation: slideDown 0.3s ease-out;
 }
 
 .filter-section {
