@@ -215,7 +215,11 @@ function requireAuth(req, res, next) {
 
 // Track repository visit
 app.post('/api/track-visit', requireAuth, (req, res) => {
-  const { repoUrl, repoName, repoData } = req.body
+  const { repoUrl, repoName, repoData } = req.body ?? {}
+  const validUrl = typeof repoUrl === 'string' && repoUrl.startsWith('https://github.com/')
+  if (!validUrl || typeof repoName !== 'string' || !repoName) {
+    return res.status(400).json({ error: 'repoUrl and repoName are required' })
+  }
   upsertVisit(req.user.id, repoUrl, repoName, repoData)
   res.json({ message: 'Visit tracked' })
 })

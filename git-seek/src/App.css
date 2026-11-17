@@ -110,7 +110,7 @@ h1 {
 form {
   display: flex;
   gap: 1rem;
-  margin: auto;
+  margin: 0 auto;
   /*margin-left: 20rem;*/
   max-width: 600px;
   width: 100%;
@@ -137,6 +137,29 @@ input[type="text"] {
 
 input[type="text"]:focus {
   border-color: #0969da;
+}
+
+/* The input has a 1rem top margin, so centre the button on the input itself */
+.search-input-wrapper .clear-search-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: calc(50% + 0.5rem);
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  font-size: 1.25rem;
+  font-weight: 400;
+  border-radius: 50%;
+  background: transparent;
+  color: #57606a;
+  animation: none;
+}
+
+.search-input-wrapper .clear-search-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
 }
 
 /* Search Actions */
@@ -535,6 +558,12 @@ button:disabled {
   margin-bottom: 1rem;
 }
 
+.no-results {
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  margin-top: 2rem;
+}
+
 /* User Section */
 .user-section {
   position: fixed;
@@ -770,4 +799,28 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+/* Phones: stack the search box above its buttons and shrink the background */
+@media (max-width: 600px) {
+  .app {
+    padding: 1.5rem 1rem;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  form {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .search-actions {
+    margin-top: 0;
+  }
+
+  body::before {
+    width: 90vw;
+    height: 90vw;
+  }
 }

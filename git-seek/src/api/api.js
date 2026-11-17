@@ -20,7 +20,7 @@ export const getCurrentUser = async () => {
   try {
     const response = await api.get('/auth/user')
     return response.data.user
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -29,7 +29,7 @@ export const checkRememberPrompt = async () => {
   try {
     const response = await api.get('/auth/check-prompt')
     return response.data.showPrompt
-  } catch (error) {
+  } catch {
     return false
   }
 }

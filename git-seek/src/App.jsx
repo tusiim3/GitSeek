@@ -17,6 +17,8 @@ function App() {
   const [showFilters, setShowFilters] = useState(false)
   const [recentRepos, setRecentRepos] = useState([])
   const [recentSearches, setRecentSearches] = useState([])
+  // The search whose results are on screen (null when nothing has been searched)
+  const [lastSearch, setLastSearch] = useState(null)
   const [filters, setFilters] = useState({
     languages: [],
     dateFilter: 'all'
@@ -30,24 +32,21 @@ function App() {
   useEffect(() => {
     const initAuth = async () => {
       const currentUser = await getCurrentUser()
-      
+
       if (currentUser) {
         setUser(currentUser)
-        
-        // Check if user needs to see "remember me" prompt
-        setTimeout(async () => {
-          const shouldShowPrompt = await checkRememberPrompt()
-          if (shouldShowPrompt) {
-            setShowRememberModal(true)
-          }
-        }, 500)
+
+        // Ask once after login whether to remember the session
+        if (await checkRememberPrompt()) {
+          setShowRememberModal(true)
+        }
       }
     }
-    
+
     initAuth()
   }, [])
 
-  // Load user's recently visited repos 
+  // Load user's recently visited repos
   const loadUserData = async () => {
     try {
       const visited = await getRecentRepos()
@@ -107,6 +106,7 @@ function App() {
     setLoading(true)
     setError(null)
     setCurrentPage(pageNum)
+    setLastSearch({ query, filters: searchFilters })
 
     try {
       const data = await searchRepos(query, searchFilters, pageNum)
@@ -140,21 +140,30 @@ function App() {
     runSearch(search.query, savedFilters, 1)
   }
 
+  // Clear the search box and results (brings back "Jump Back In")
+  const handleClearSearch = () => {
+    setSearchQuery('')
+    setRepositories([])
+    setTotalPages(0)
+    setCurrentPage(1)
+    setLastSearch(null)
+    setError(null)
+  }
+
   const handleClearRecentSearches = async () => {
     await clearRecentSearches()
     setRecentSearches([])
   }
 
-  // Track when user clicks on a repo
-  const handleRepoClick = async (repo) => {
-    if (user) {
-      await trackRepoVisit(repo.html_url, repo.full_name, {
-        description: repo.description,
-        stargazers_count: repo.stargazers_count,
-        language: repo.language
-      })
+  // Track when a logged-in user opens a repo
+  const handleRepoClick = async (url, name, data) => {
+    if (!user) return
+    try {
+      await trackRepoVisit(url, name, data)
       // Refresh "Jump Back In" section
       loadUserData()
+    } catch (err) {
+      console.error('Error tracking visit:', err)
     }
   }
 
@@ -169,7 +178,7 @@ function App() {
 
   // Navigate to a different page
   const goToPage = (page) => {
-    runSearch(searchQuery, filters, page)
+    runSearch(lastSearch.query, lastSearch.filters, page)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -205,7 +214,18 @@ function App() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search GitHub repositories..."
+            aria-label="Search GitHub repositories"
           />
+          {(searchQuery || lastSearch) && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={handleClearSearch}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
         </div>
         <div className="search-actions">
           <button 
@@ -254,7 +274,7 @@ function App() {
       {loading && <LoadingSpinner />}
 
       {/* Jump Back In Section */}
-      {!loading && user && recentRepos.length > 0 && repositories.length === 0 && (
+      {!loading && user && recentRepos.length > 0 && !lastSearch && (
         <div className="jump-back-in">
           <h2>⚡ Jump Back In</h2>
           <p className="jump-subtitle">Your recently accessed repositories</p>
@@ -267,6 +287,11 @@ function App() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="recent-repo-card"
+                onClick={() => handleRepoClick(repo.url, repo.name, {
+                  description: repo.description,
+                  stargazers_count: repo.stars,
+                  language: repo.language
+                })}
               >
                 <div className="recent-repo-header">
                   <h3>{repo.name}</h3>
@@ -367,13 +392,14 @@ function App() {
             <div className="why-link-dropdown">              
               <ul>
                 <li>
-                  -Access and search through your private repositories
-                  <br></br>-Get 5,000 API requests per hour instead of just 60
+                  -Search your private repositories too
+                  <br></br>-Get your own search limit instead of sharing one with every visitor
                   <br></br>-Save and revisit your recent searches
-                  <br></br>-Keep track of your most visited repositories
+                  <br></br>-Jump back into the repositories you opened recently
                 </li>
                 <li>
-                  Remember, OAuth authentication keeps your credentials safe - we never see your password
+                  GitHub will ask for access to your repositories so private ones can appear in
+                  search. GitSeek only reads search results, and OAuth means we never see your password.
                 </li>
               </ul>
             </div>
@@ -382,6 +408,12 @@ function App() {
       )}
 
       {error && <p className="error">{error}</p>}
+
+      {!loading && !error && lastSearch && repositories.length === 0 && (
+        <p className="no-results">
+          No repositories found for “{lastSearch.query}”. Try different keywords or fewer filters.
+        </p>
+      )}
 
       {!loading && (
         <div className="results">
@@ -392,7 +424,11 @@ function App() {
                   href={repo.html_url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  onClick={() => handleRepoClick(repo)}
+                  onClick={() => handleRepoClick(repo.html_url, repo.full_name, {
+                    description: repo.description,
+                    stargazers_count: repo.stargazers_count,
+                    language: repo.language
+                  })}
                   title={repo.full_name}
                 >
                   {repo.full_name}
