@@ -16,6 +16,10 @@
   --dark-control: rgba(255, 255, 255, 0.08);
   --dark-control-hover: rgba(255, 255, 255, 0.16);
   --dark-control-border: rgba(255, 255, 255, 0.24);
+  /* Solid surface for small pills drawn over the background logo */
+  --chip-bg: #161b22;
+  --chip-bg-hover: #21262d;
+  --chip-border: rgba(255, 255, 255, 0.18);
 }
 
 * {
@@ -43,7 +47,9 @@ body::before {
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
-  opacity: 1;
+  /* Dimmed so white text on top of it (title, chips) stays readable */
+  opacity: 0.5;
+  filter: brightness(0.7);
   z-index: 0;
   pointer-events: none;
 }
@@ -76,7 +82,7 @@ h1 {
   margin-top: 0;
   /*margin-left: 10.25rem;*/
   margin-bottom: 0;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
 }
 
 /* Recent searches */
@@ -92,7 +98,7 @@ h1 {
 }
 
 .recent-searches-label {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--on-dark-muted);
   font-size: 0.85rem;
 }
 
@@ -106,27 +112,27 @@ h1 {
 }
 
 .recent-search-chip {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.recent-search-chip:hover {
-  background: rgba(255, 255, 255, 0.22);
+.recent-searches .recent-search-chip:hover:not(:disabled) {
+  background: var(--chip-bg-hover);
 }
 
 .recent-search-filters {
   margin-left: 0.35rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--on-dark-muted);
   font-size: 0.75rem;
 }
 
 .recent-searches .clear-recent-btn {
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--on-dark-muted);
   text-decoration: underline;
 }
 
@@ -348,12 +354,11 @@ input[type="text"]:focus {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   border-radius: 50px;
-  color: white;
+  color: var(--on-dark);
   font-size: 0.9rem;
-  backdrop-filter: blur(10px);
 }
 
 .filter-badge button {
@@ -624,11 +629,10 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--chip-bg);
   padding: 0.5rem 1rem;
   border-radius: 50px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--chip-border);
 }
 
 .avatar {
