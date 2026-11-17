@@ -105,13 +105,18 @@ function getRecentRepos(userId, limit = 10) {
 
 // --- recent_searches helpers ---
 
-function addRecentSearch(userId, query, languages = [], dateFilter = 'all') {
+// Re-searching moves an entry to the top: it is deleted and re-inserted so that
+// rowid (the tie-breaker for searches in the same millisecond) follows recency.
+const addRecentSearchTx = db.transaction((userId, query, languages, dateFilter) => {
+  db.prepare(`
+    DELETE FROM recent_searches
+    WHERE user_id = ? AND query = ? AND languages = ? AND date_filter = ?
+  `).run(userId, query, languages, dateFilter)
+
   db.prepare(`
     INSERT INTO recent_searches (user_id, query, languages, date_filter, searched_at)
     VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT (user_id, query, languages, date_filter) DO UPDATE SET
-      searched_at = excluded.searched_at
-  `).run(userId, query, [...languages].sort().join(','), dateFilter, Date.now())
+  `).run(userId, query, languages, dateFilter, Date.now())
 
   // Keep only the newest searches
   db.prepare(`
@@ -119,10 +124,14 @@ function addRecentSearch(userId, query, languages = [], dateFilter = 'all') {
     WHERE user_id = ? AND rowid NOT IN (
       SELECT rowid FROM recent_searches
       WHERE user_id = ?
-      ORDER BY searched_at DESC
+      ORDER BY searched_at DESC, rowid DESC
       LIMIT ?
     )
   `).run(userId, userId, MAX_SEARCHES_PER_USER)
+})
+
+function addRecentSearch(userId, query, languages = [], dateFilter = 'all') {
+  addRecentSearchTx(userId, query, [...languages].sort().join(','), dateFilter)
 }
 
 function getRecentSearches(userId) {
@@ -130,7 +139,7 @@ function getRecentSearches(userId) {
     SELECT query, languages, date_filter AS dateFilter
     FROM recent_searches
     WHERE user_id = ?
-    ORDER BY searched_at DESC
+    ORDER BY searched_at DESC, rowid DESC
   `).all(userId).map((row) => ({
     ...row,
     languages: row.languages ? row.languages.split(',') : []
