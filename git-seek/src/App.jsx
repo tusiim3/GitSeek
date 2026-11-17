@@ -364,32 +364,18 @@ function App() {
               </div>
             </div>
 
-            {hasActiveFilters && (
-              <button type="button" className="clear-filters-btn" onClick={clearFilters}>
-                Clear All Filters
-              </button>
-            )}
+            {/* Always rendered (just hidden) so picking a filter doesn't resize the panel */}
+            <button
+              type="button"
+              className={`clear-filters-btn${hasActiveFilters ? '' : ' is-hidden'}`}
+              onClick={clearFilters}
+              disabled={!hasActiveFilters}
+            >
+              Clear All Filters
+            </button>
           </div>
         </div>
       </div>
-
-      {/* Active Filters Display */}
-      {hasActiveFilters && (
-        <div className="active-filters">
-          {filters.languages.map(lang => (
-            <span key={lang} className="filter-badge">
-              {lang}
-              <button onClick={() => handleLanguageToggle(lang)}>×</button>
-            </span>
-          ))}
-          {filters.dateFilter !== 'all' && (
-            <span className="filter-badge">
-              Updated: {filters.dateFilter}
-              <button onClick={() => handleDateFilterChange('all')}>×</button>
-            </span>
-          )}
-        </div>
-      )}
 
       {!user && !showRememberModal && (
         <div className="link-account-section">
