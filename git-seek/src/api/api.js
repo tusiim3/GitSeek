@@ -1,11 +1,7 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-
-const api = axios.create({
-  baseURL: API_URL,
-  withCredentials: true
-})
+// The frontend and API share one origin (Vite proxies to Express in dev)
+const api = axios.create()
 
 // Search repos with pagination 
 export const searchRepos = async (query, filters = {}, page = 1) => {
@@ -56,4 +52,4 @@ export const getMostVisited = async () => {
   return response.data.repos
 }
 
-export const getAuthUrl = () => `${API_URL}/auth/github`
+export const getAuthUrl = () => '/auth/github'
