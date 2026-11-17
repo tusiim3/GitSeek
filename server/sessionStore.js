@@ -5,38 +5,22 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000
 const CLEANUP_INTERVAL_MS = 15 * 60 * 1000
 
 /**
- * express-session store backed by better-sqlite3.
+ * express-session store that saves sessions through the app's database
+ * interface (SQLite or Postgres, see db/index.js).
  *
  * Session data (which includes the user's GitHub access token) is encrypted
  * with AES-256-GCM before it is written, so the database never holds tokens
  * in plain text. The key is derived from SESSION_SECRET.
  */
-class SqliteSessionStore extends session.Store {
+class EncryptedSessionStore extends session.Store {
   constructor({ db, secret }) {
     super()
+    this.db = db
     this.key = crypto.scryptSync(secret, 'gitseek-session-store', 32)
 
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS user_sessions (
-        sid     TEXT PRIMARY KEY,
-        data    TEXT NOT NULL,
-        expires INTEGER NOT NULL
-      )
-    `)
-
-    this.statements = {
-      get: db.prepare('SELECT data FROM user_sessions WHERE sid = ? AND expires > ?'),
-      set: db.prepare(`
-        INSERT INTO user_sessions (sid, data, expires) VALUES (?, ?, ?)
-        ON CONFLICT (sid) DO UPDATE SET data = excluded.data, expires = excluded.expires
-      `),
-      touch: db.prepare('UPDATE user_sessions SET expires = ? WHERE sid = ?'),
-      destroy: db.prepare('DELETE FROM user_sessions WHERE sid = ?'),
-      clearExpired: db.prepare('DELETE FROM user_sessions WHERE expires <= ?')
-    }
-
-    this.clearExpired()
-    this.cleanupTimer = setInterval(() => this.clearExpired(), CLEANUP_INTERVAL_MS)
+    this.cleanupTimer = setInterval(() => {
+      this.clearExpired().catch((err) => this.emit('error', err))
+    }, CLEANUP_INTERVAL_MS)
     this.cleanupTimer.unref()
   }
 
@@ -61,46 +45,41 @@ class SqliteSessionStore extends session.Store {
   }
 
   get(sid, callback) {
-    try {
-      const row = this.statements.get.get(sid, Date.now())
-      if (!row) return callback(null, null)
-      callback(null, this.decrypt(row.data))
-    } catch {
-      // Unreadable data (e.g. SESSION_SECRET changed): treat as no session
-      callback(null, null)
-    }
+    this.db.getSession(sid, Date.now()).then(
+      (data) => {
+        if (!data) return callback(null, null)
+        try {
+          callback(null, this.decrypt(data))
+        } catch {
+          // Unreadable data (e.g. SESSION_SECRET changed): treat as no session
+          callback(null, null)
+        }
+      },
+      (err) => callback(err)
+    )
   }
 
   set(sid, sess, callback = () => {}) {
+    let data
     try {
-      this.statements.set.run(sid, this.encrypt(sess), this.expiryOf(sess))
-      callback(null)
+      data = this.encrypt(sess)
     } catch (err) {
-      callback(err)
+      return callback(err)
     }
+    this.db.setSession(sid, data, this.expiryOf(sess)).then(() => callback(null), callback)
   }
 
   touch(sid, sess, callback = () => {}) {
-    try {
-      this.statements.touch.run(this.expiryOf(sess), sid)
-      callback(null)
-    } catch (err) {
-      callback(err)
-    }
+    this.db.touchSession(sid, this.expiryOf(sess)).then(() => callback(null), callback)
   }
 
   destroy(sid, callback = () => {}) {
-    try {
-      this.statements.destroy.run(sid)
-      callback(null)
-    } catch (err) {
-      callback(err)
-    }
+    this.db.destroySession(sid).then(() => callback(null), callback)
   }
 
   clearExpired() {
-    this.statements.clearExpired.run(Date.now())
+    return this.db.clearExpiredSessions(Date.now())
   }
 }
 
-module.exports = SqliteSessionStore
+module.exports = EncryptedSessionStore

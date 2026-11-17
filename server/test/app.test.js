@@ -2,13 +2,14 @@ require('./setup')
 const { test, describe, before, after } = require('node:test')
 const assert = require('node:assert/strict')
 const signature = require('cookie-signature')
-const { app, sessionStore } = require('../app')
+const { app, db, sessionStore } = require('../app')
 
 let server
 let baseUrl
 const realFetch = global.fetch
 
 before(async () => {
+  await db.init()
   await new Promise((resolve) => {
     server = app.listen(0, resolve)
   })
@@ -53,6 +54,26 @@ async function withGitHubStub(fn) {
   }
   return calls
 }
+
+describe('health check', () => {
+  test('responds without touching the database or sessions', async () => {
+    const originals = {}
+    for (const name of ['getSession', 'setSession', 'touchSession']) {
+      originals[name] = db[name]
+      db[name] = () => {
+        throw new Error(`health check called db.${name}`)
+      }
+    }
+    try {
+      const res = await request('/api/health', { cookie: 'connect.sid=s%3Aanything.sig' })
+      assert.equal(res.status, 200)
+      assert.deepEqual(await res.json(), { status: 'ok' })
+      assert.equal(res.headers.get('set-cookie'), null)
+    } finally {
+      Object.assign(db, originals)
+    }
+  })
+})
 
 describe('authentication', () => {
   test('protected routes require login', async () => {

@@ -13,7 +13,7 @@ GitSeek is a web app for searching GitHub repositories, with quick stats such as
 
 - **Frontend:** React 19 + Vite
 - **Backend:** Node.js, Express 5, Passport.js (GitHub OAuth)
-- **Database:** SQLite via better-sqlite3 (sessions, visit history, recent searches)
+- **Database:** SQLite (local development) or Postgres (production, e.g. Neon), chosen by `DATABASE_URL`. Both store sessions, visit history, recent searches and the remember-me prompt.
 
 The backend also serves the built frontend, so the whole app runs as **one service on one URL**. In development, Vite proxies `/api` and `/auth` to the backend, so it behaves the same way.
 
@@ -75,7 +75,7 @@ Other scripts:
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs the server tests |
+| `npm test` | Runs the server tests (add `TEST_DATABASE_URL=postgres://…` to also test Postgres) |
 | `npm run lint` | Lints the frontend |
 | `npm run build` | Builds the frontend into `git-seek/dist` |
 | `npm start` | Runs the server, which also serves the built frontend |
@@ -93,36 +93,76 @@ Variables live in `server/.env` locally, or in your host's settings in productio
 | `SESSION_SECRET` | yes | Long random string. Signs cookies and encrypts stored sessions; changing it logs everyone out | `3f9c...` |
 | `APP_URL` | in production | Public URL of the app, used for the OAuth callback | `http://localhost:5173` |
 | `NODE_ENV` | in production | `production` enables secure cookies and proxy support | `development` |
-| `DATABASE_PATH` | no | SQLite file. Relative paths are resolved from `server/` | `./gitseek.db` |
+| `DATABASE_URL` | in production | Postgres connection string. Leave empty to use SQLite instead | `postgresql://user:pass@host/db?sslmode=require` |
+| `DATABASE_PATH` | no | SQLite file, used when `DATABASE_URL` is empty. Relative paths are resolved from `server/` | `./gitseek.db` |
 | `PORT` | no | Port the server listens on (most hosts set this) | `5000` |
-| `GITHUB_TOKEN` | no | A GitHub token (no scopes needed) used for searches by visitors who aren't logged in | `github_pat_...` |
+| `GITHUB_TOKEN` | no | Fine-grained GitHub token used for searches by visitors who aren't logged in (see below) | `github_pat_...` |
 
-Without `GITHUB_TOKEN`, all anonymous visitors share GitHub's limit of 10 searches per minute per server IP. Logged-in users always use their own token.
+**Database:** with `DATABASE_URL` empty, the server uses the SQLite file at `DATABASE_PATH`, so local development needs no setup. With `DATABASE_URL` set, it uses Postgres and creates its tables on startup.
+
+**`GITHUB_TOKEN`:** without it, all anonymous visitors share GitHub's limit of 10 searches per minute for the server's IP. Logged-in users always use their own token. To create one:
+
+1. GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
+2. Give it a name (e.g. `GitSeek search`) and an **expiration** (e.g. 90 days; set a reminder to renew it)
+3. **Repository access:** *Public repositories (read-only)*
+4. **Permissions:** leave everything at *No access*
+5. Generate it and put it **only** in your host's environment variables (Render), never in the repo or `.env.example`
 
 ---
 
-## Deploying to Railway
+## Deploying for free (Render + Neon + UptimeRobot)
 
-The app deploys as a single Railway service, with a volume so the database survives redeploys.
+The app runs as one free **Render** web service, which serves both the API and the built frontend. Render's free disk is wiped on every deploy and restart, so data lives in a free **Neon** Postgres database. Render's free services sleep after 15 minutes without traffic, so a free **UptimeRobot** monitor pings `/api/health` every 5 minutes to keep it awake.
 
-1. **Create the service:** in [Railway](https://railway.app), go to **New Project → Deploy from GitHub repo** and pick this repo. Leave the root directory as the repo root. Railway runs `npm install` (which installs the server and frontend), then `npm run build`, then `npm start`.
-2. **Add a volume:** right-click the service → **Attach volume**, with mount path `/data`.
-3. **Get a URL:** under **Settings → Networking**, click **Generate Domain**, e.g. `https://gitseek-production.up.railway.app`.
-4. **Create a production OAuth App** (same steps as above) with:
-   - **Homepage URL**: your Railway URL
-   - **Authorization callback URL**: your Railway URL + `/auth/github/callback`
-5. **Set variables** on the service:
+### 1. Neon (database)
+
+1. Sign up at [neon.tech](https://neon.tech) and create a project. Pick the region closest to where you'll run Render.
+2. On the project dashboard, click **Connect** and copy the connection string. It looks like `postgresql://user:password@ep-xxx.region.aws.neon.tech/neondb?sslmode=require`.
+3. Optional: change `sslmode=require` to `sslmode=verify-full` in the string. Both are secure; `verify-full` just stops the Postgres driver from printing a notice about the setting.
+
+GitSeek creates its tables automatically on first start. Neon pauses the database when it's idle and wakes it on the next query, so the first request after a quiet spell can take a second longer. The health check deliberately doesn't touch the database, so it doesn't keep Neon awake.
+
+### 2. Render (web service)
+
+1. Sign up at [render.com](https://render.com) and click **New → Web Service**, then connect this GitHub repo.
+2. Settings:
+   - **Branch:** `main`
+   - **Root Directory:** leave blank
+   - **Runtime / Language:** Node
+   - **Build Command:** `npm ci && npm run build`
+   - **Start Command:** `npm start`
+   - **Instance Type:** Free
+   - **Health Check Path** (under Advanced): `/api/health`
+3. **Environment variables:**
    ```
    NODE_ENV=production
-   APP_URL=https://<your-domain>.up.railway.app
-   GITHUB_CLIENT_ID=<production app client id>
-   GITHUB_CLIENT_SECRET=<production app client secret>
+   APP_URL=https://<your-app>.onrender.com
+   GITHUB_CLIENT_ID=<production OAuth app client id>
+   GITHUB_CLIENT_SECRET=<production OAuth app client secret>
    SESSION_SECRET=<long random string>
-   DATABASE_PATH=/data/gitseek.db
-   GITHUB_TOKEN=<optional>
+   DATABASE_URL=<Neon connection string>
+   GITHUB_TOKEN=<optional fine-grained token>
    ```
-   Railway sets `PORT` itself.
-6. Redeploy. Search should work right away, and **Link Your GitHub Account** should log you in.
+   Render sets `PORT` itself, and the Node version comes from `engines` in `package.json`. Your `onrender.com` URL appears once the service is created. If you don't have it yet, set `APP_URL` afterwards and redeploy.
+4. Deploy. The logs should show `Server started` with `database: "postgres"`.
+
+### 3. GitHub OAuth app (production)
+
+Create a second OAuth app (same steps as the dev one above) with:
+- **Homepage URL:** `https://<your-app>.onrender.com`
+- **Authorization callback URL:** `https://<your-app>.onrender.com/auth/github/callback`
+
+Put its Client ID and Secret in Render's environment variables, then redeploy.
+
+### 4. UptimeRobot (keep it awake)
+
+1. Sign up at [uptimerobot.com](https://uptimerobot.com) and click **Add New Monitor**.
+2. **Monitor type:** HTTP(s)
+3. **URL:** `https://<your-app>.onrender.com/api/health`
+4. **Monitoring interval:** 5 minutes
+5. Create the monitor. It should show *Up*, and you'll get an email if the app goes down.
+
+Render's free plan includes 750 instance hours a month, enough for one service running all month.
 
 ---
 
@@ -146,9 +186,13 @@ The app deploys as a single Railway service, with a volume so the database survi
    ├─ index.js             # starts the server
    ├─ app.js               # routes, auth and static file serving
    ├─ config.js            # loads and checks environment variables
-   ├─ db.js                # SQLite tables and queries
+   ├─ db/
+   │  ├─ index.js          # picks Postgres (DATABASE_URL) or SQLite; shared interface
+   │  ├─ sqlite.js         # SQLite tables and queries (local dev)
+   │  ├─ postgres.js       # Postgres tables and queries (production)
+   │  └─ shared.js         # limits and helpers used by both
    ├─ github.js            # GitHub search query building and API calls
-   ├─ sessionStore.js      # encrypted SQLite session store
+   ├─ sessionStore.js      # encrypted session store on top of db/
    └─ test/                # node:test suites
 ```
 
