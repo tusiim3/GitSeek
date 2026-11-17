@@ -20,6 +20,8 @@ module.exports = {
   githubClientId: process.env.GITHUB_CLIENT_ID,
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
   sessionSecret: process.env.SESSION_SECRET,
+  // Optional token for searches by visitors who are not logged in
+  githubToken: process.env.GITHUB_TOKEN || undefined,
   // Relative paths are resolved from the server folder, not the shell's cwd
   databasePath: dbPath === ':memory:' ? dbPath : path.resolve(__dirname, dbPath)
 }

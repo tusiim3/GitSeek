@@ -6,6 +6,7 @@ const session = require('express-session')
 const passport = require('passport')
 const GitHubStrategy = require('passport-github2').Strategy
 const SqliteSessionStore = require('./sessionStore')
+const { SearchError, buildSearchQuery, parsePage, searchRepos } = require('./github')
 const { rateLimit } = require('express-rate-limit')
 const pino = require('pino')
 const pinoHttp = require('pino-http')
@@ -180,70 +181,29 @@ const searchLimiter = rateLimit({
   message: { error: 'Too many requests, please slow down' }
 })
 
-// Repository Search with GitHub API
+// Repository search via the GitHub API
 app.get('/api/search', searchLimiter, async (req, res) => {
   try {
-    const { q, languages, dateFilter, page = 1 } = req.query
+    const { q, languages = '', dateFilter = 'all' } = req.query
+    const languageList = String(languages).split(',').filter(Boolean)
+    const query = buildSearchQuery(q, languageList, dateFilter)
+    const page = parsePage(req.query.page)
 
-    if (!q) {
-      return res.status(400).json({ error: 'Query parameter required' })
-    }
+    logger.info({ query, page }, 'GitHub search')
 
-    const axios = require('axios')
-    const headers = {}
-
-    // Use authenticated user's token for higher rate limits
-    if (req.isAuthenticated() && req.user.accessToken) {
-      headers.Authorization = `token ${req.user.accessToken}`
-    }
-
-    // Build GitHub search query with filters
-    let searchQuery = q
-
-    // Add language filters (e.g., "language:JavaScript language:Python")
-    if (languages && languages.length > 0) {
-      const langArray = languages.split(',').filter(l => l)
-      langArray.forEach(lang => {
-        searchQuery += ` language:${lang}`
-      })
-    }
-
-    // Add date filter (e.g., "pushed:>=2024-10-01")
-    if (dateFilter && dateFilter !== 'all') {
-      const now = new Date()
-      let date
-
-      if (dateFilter === 'week') {
-        date = new Date(now.setDate(now.getDate() - 7))
-      } else if (dateFilter === 'month') {
-        date = new Date(now.setMonth(now.getMonth() - 1))
-      } else if (dateFilter === 'year') {
-        date = new Date(now.setFullYear(now.getFullYear() - 1))
-      }
-
-      if (date) {
-        const dateString = date.toISOString().split('T')[0]
-        searchQuery += ` pushed:>=${dateString}`
-      }
-    }
-
-    logger.info({ query: searchQuery, page }, 'GitHub search')
-
-    // Fetch from GitHub API with pagination
-    const response = await axios.get(
-      `https://api.github.com/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=stars&order=desc&page=${page}&per_page=30`,
-      { headers }
-    )
-
-    // Return both items and total count so frontend knows how many pages exist
-    res.json({
-      items: response.data.items,
-      total_count: response.data.total_count,
-      current_page: parseInt(page)
+    const results = await searchRepos({
+      query,
+      page,
+      userToken: req.isAuthenticated() ? req.user.accessToken : undefined,
+      serverToken: config.githubToken
     })
+    res.json(results)
   } catch (error) {
+    if (error instanceof SearchError) {
+      return res.status(error.status).json({ error: error.message })
+    }
     logger.error({ err: error }, 'Search failed')
-    res.status(500).json({ error: 'Search failed' })
+    res.status(500).json({ error: 'Search failed. Please try again.' })
   }
 })
 

@@ -112,7 +112,7 @@ function App() {
       const maxPages = Math.min(Math.ceil(data.total_count / 30), 34)
       setTotalPages(maxPages)
     } catch (err) {
-      setError(err.message)
+      setError(err.response?.data?.error || 'Search failed. Please try again.')
       setRepositories([])
       setTotalPages(0)
     } finally {
