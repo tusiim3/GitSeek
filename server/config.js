@@ -22,6 +22,8 @@ module.exports = {
   sessionSecret: process.env.SESSION_SECRET,
   // Optional token for searches by visitors who are not logged in
   githubToken: process.env.GITHUB_TOKEN || undefined,
-  // Relative paths are resolved from the server folder, not the shell's cwd
+  // Postgres connection string (e.g. Neon). Empty or unset means SQLite is used.
+  databaseUrl: process.env.DATABASE_URL?.trim() || undefined,
+  // SQLite file. Relative paths are resolved from the server folder, not the shell's cwd
   databasePath: dbPath === ':memory:' ? dbPath : path.resolve(__dirname, dbPath)
 }

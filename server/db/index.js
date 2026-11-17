@@ -1,5 +1,4 @@
 const config = require('../config')
-const { createSqliteDb } = require('./sqlite')
 
 /**
  * The app's database. Every function is async and behaves the same on each
@@ -15,4 +14,17 @@ const { createSqliteDb } = require('./sqlite')
  *   getSession / setSession / touchSession / destroySession / clearExpiredSessions
  *   close()
  */
-module.exports = createSqliteDb(config.databasePath)
+function createDb() {
+  if (config.databaseUrl) {
+    // Loaded only when needed, so local development doesn't touch pg at all
+    const { createPostgresDb } = require('./postgres')
+    return createPostgresDb(config.databaseUrl, {
+      onError: (err) => console.error('Postgres connection error:', err.message)
+    })
+  }
+  const { createSqliteDb } = require('./sqlite')
+  return createSqliteDb(config.databasePath)
+}
+
+// DATABASE_URL set → Postgres (production, e.g. Neon); otherwise SQLite (local dev)
+module.exports = createDb()
